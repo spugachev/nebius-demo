@@ -12,13 +12,19 @@ export MODELSCOPE_CACHE=/data/.cache/modelscope
 export NCCL_IB_DISABLE=0
 export NCCL_DEBUG=WARN
 
-# Build venv on shared fs (system-site-packages inherits torch/CUDA/NCCL,
-# but we override transformers without fighting the container's pinned deps).
+# Clean venv (no --system-site-packages so pip resolver won't see
+# lightning_thunder's transformers<5 pin), but inject system torch/CUDA
+# via a .pth file so the runtime can still find them.
 VENV=/data/env/swift
 if [ ! -f "$VENV/bin/swift" ]; then
     echo "Creating venv + installing ms-swift[megatron]..."
-    python -m venv "$VENV" --system-site-packages
-    "$VENV/bin/pip" install -q --upgrade \
+    rm -rf "$VENV"
+    python -m venv "$VENV"
+    PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    SYSSITE=$(python3 -c 'import site; print(site.getsitepackages()[0])')
+    # Expose system torch/CUDA at runtime without polluting pip resolver
+    echo "$SYSSITE" > "$VENV/lib/python${PYVER}/site-packages/system_torch.pth"
+    "$VENV/bin/pip" install -q \
         --trusted-host pypi.org \
         --trusted-host files.pythonhosted.org \
         --trusted-host pypi.python.org \
