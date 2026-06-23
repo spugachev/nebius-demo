@@ -22,7 +22,7 @@ if [ ! -f "$SWIFT_STAMP" ]; then
 fi
 
 swift megatron-sft \
-    --model_type          qwen3_moe \
+    --model_type          qwen3_moe_instruct \
     --model_id_or_path    "$MODEL_DIR" \
     --dataset             "$DATASET_TRAIN" \
     --val_dataset         "$DATASET_EVAL" \

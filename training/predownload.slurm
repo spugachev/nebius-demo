@@ -10,30 +10,27 @@
 
 set -e
 
-MODEL_ID="Qwen/Qwen3-30B-A3B-Instruct"
-MODEL_DIR="/data/models/Qwen3-30B-A3B-Instruct"
+MODEL_ID="Qwen/Qwen3-30B-A3B"
+MODEL_DIR="/data/models/Qwen3-30B-A3B"
 
-export HF_HOME=/data/.cache/huggingface
 export MODELSCOPE_CACHE=/data/.cache/modelscope
 
-mkdir -p "$HF_HOME" "$MODELSCOPE_CACHE" "$MODEL_DIR"
+mkdir -p "$MODELSCOPE_CACHE" "$MODEL_DIR"
 
-echo "Downloading $MODEL_ID → $MODEL_DIR"
+echo "Downloading $MODEL_ID from ModelScope → $MODEL_DIR"
 echo "Start: $(date)"
 
 srun --container-image="nvcr.io/nvidia/pytorch:25.03-py3" \
      --container-mounts="/data:/data" \
      bash -c "
 set -e
-pip install -q huggingface_hub hf_transfer
-export HF_HOME=/data/.cache/huggingface
-export HF_HUB_ENABLE_HF_TRANSFER=1
+pip install -q modelscope
+export MODELSCOPE_CACHE=/data/.cache/modelscope
 python -c \"
-from huggingface_hub import snapshot_download
+from modelscope import snapshot_download
 snapshot_download(
-    repo_id='$MODEL_ID',
-    local_dir='$MODEL_DIR',
-    ignore_patterns=['*.pt', '*.bin'],
+    model_id='$MODEL_ID',
+    cache_dir='$MODEL_DIR',
 )
 print('Download complete')
 \"
