@@ -39,6 +39,6 @@ mkdir -p "$CHECKPOINT_DIR"
 # ── Launch training ──────────────────────────────────────────────────────────
 srun --export=ALL \
      --container-image="nvcr.io/nvidia/pytorch:25.03-py3" \
-     --container-mounts="/data:/data" \
+     --container-mounts="/data:/data,/etc/ssl:/etc/ssl:ro" \
      bash /data/code/training/run_megatron.sh \
        "$MODEL_DIR" "$DATASET_TRAIN" "$DATASET_EVAL" "$CHECKPOINT_DIR"

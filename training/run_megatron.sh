@@ -19,6 +19,9 @@ if [ ! -f "$VENV/bin/swift" ]; then
     echo "Creating venv + installing ms-swift[megatron]..."
     python -m venv "$VENV" --system-site-packages
     "$VENV/bin/pip" install -q --upgrade \
+        --trusted-host pypi.org \
+        --trusted-host files.pythonhosted.org \
+        --trusted-host pypi.python.org \
         "ms-swift[megatron]" "mcore-bridge" \
         "transformers>=5.5.0" "accelerate"
     echo "Install complete"
