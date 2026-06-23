@@ -27,35 +27,37 @@ controller_state_on_filestore = false
 
 filestore_controller_spool = {
   spec = {
-    size_gibibytes       = 128
+    size_gibibytes       = 24
     block_size_kibibytes = 4
     forbid_deletion      = false
   }
 }
 
-# Shared jail filesystem: model weights (70GB) + dataset + 2 checkpoints (140GB) = ~300GB. 1TB gives headroom.
+# Shared jail root filesystem: OS config, code, Slurm state (~50GB needed, 300GiB for headroom)
+# Tenant quota for network-ssd filesystems: 1024 GiB total across all filesystems
 filestore_jail = {
   spec = {
-    size_gibibytes       = 1024
+    size_gibibytes       = 300
     block_size_kibibytes = 4
     forbid_deletion      = false
   }
 }
 
-# /data submount for model weights, dataset, and checkpoints (~300GB needed, 500GiB gives headroom)
+# /data submount: model weights (70GB) + 2 checkpoints (140GB) + dataset (0.2GB) = ~210GB needed
 filestore_jail_submounts = [{
   name       = "data"
   mount_path = "/data"
   spec = {
-    size_gibibytes       = 500
+    size_gibibytes       = 600
     block_size_kibibytes = 4
     forbid_deletion      = false
   }
 }]
 
+# 300 + 600 + 100 = 1000 GiB total — within 1024 GiB tenant quota
 filestore_accounting = {
   spec = {
-    size_gibibytes       = 128
+    size_gibibytes       = 100
     block_size_kibibytes = 4
     forbid_deletion      = false
   }

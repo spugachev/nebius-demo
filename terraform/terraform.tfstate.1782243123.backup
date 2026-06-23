@@ -1,0 +1,1114 @@
+{
+  "version": 4,
+  "terraform_version": "1.15.6",
+  "serial": 33,
+  "lineage": "82a0f0cb-4e06-1172-bca3-6b391a60fe14",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "data",
+      "type": "nebius_compute_v1_filesystem",
+      "name": "existing_jail",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": []
+    },
+    {
+      "mode": "data",
+      "type": "nebius_iam_v1_project",
+      "name": "this",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "created_at": "2026-06-19T00:25:30.040791Z",
+            "id": "project-e02qk7z0pr005jndcar132",
+            "labels": null,
+            "metadata": {},
+            "name": "demoday-sergey",
+            "parent_id": "tenant-e00znpks4hqd7c0e72",
+            "region": "eu-north2",
+            "resource_version": 1,
+            "status": {
+              "container_state": "ACTIVE",
+              "region": "eu-north2",
+              "suspension_state": "NONE"
+            },
+            "updated_at": "2026-06-19T00:25:45.003433Z"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "mode": "data",
+      "type": "nebius_iam_v1_tenant",
+      "name": "this",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "created_at": "2026-02-13T19:28:36.332185Z",
+            "id": "tenant-e00znpks4hqd7c0e72",
+            "labels": null,
+            "metadata": {},
+            "name": "csa-hiring-sandboxK",
+            "parent_id": "root-g00root",
+            "region": "eu-north1",
+            "resource_version": 4,
+            "status": {
+              "container_state": "ACTIVE",
+              "region": "eu-north1",
+              "suspension_state": "NONE"
+            },
+            "updated_at": "2026-02-13T19:44:31.315046Z"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "mode": "data",
+      "type": "nebius_vpc_v1_subnet",
+      "name": "this",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "created_at": "2026-06-19T00:25:40.852925Z",
+            "id": "vpcsubnet-e02g2fe36gdvbzke5b",
+            "ipv4_private_pools": {
+              "pools": null,
+              "use_network_pools": true
+            },
+            "ipv4_public_pools": {
+              "pools": null,
+              "use_network_pools": true
+            },
+            "labels": null,
+            "metadata": {},
+            "name": "default-subnet-k3kajg72",
+            "network_id": "vpcnetwork-e02e3n70w1zvkp01hr",
+            "parent_id": "project-e02qk7z0pr005jndcar132",
+            "resource_version": 1,
+            "route_table_id": null,
+            "status": {
+              "ipv4_private_cidrs": [
+                "10.24.0.0/13"
+              ],
+              "ipv4_public_cidrs": null,
+              "route_table": {
+                "default": true,
+                "id": "vpcroutetable-e02gtr966vk06wdev2"
+              },
+              "state": "READY"
+            },
+            "updated_at": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "check_driver_presets",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "56dd4b1a-6c99-9778-ced4-158d14fc2d3c",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "check_local_nvme",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "6c785c19-30b9-4f20-8cb6-70b3c2549437",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve"
+          ],
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "check_nfs",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "67da49f7-33bd-6bab-da09-758239c434db",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_region"
+          ],
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "check_region",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "6aecdfce-b643-39f0-68aa-8cecb90b156e",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "check_slurm_nodeset",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "index_key": "controller",
+          "schema_version": 0,
+          "attributes": {
+            "id": "57606750-d529-8148-e589-b09ae13870e2",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_region"
+          ],
+          "create_before_destroy": true
+        },
+        {
+          "index_key": "login",
+          "schema_version": 0,
+          "attributes": {
+            "id": "9119d94c-b314-1c6a-a357-cc4e4f99942c",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_region"
+          ],
+          "create_before_destroy": true
+        },
+        {
+          "index_key": "nfs",
+          "schema_version": 0,
+          "attributes": {
+            "id": "a4b33280-fba4-5063-0ddd-1ed5863486eb",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_region"
+          ],
+          "create_before_destroy": true
+        },
+        {
+          "index_key": "system",
+          "schema_version": 0,
+          "attributes": {
+            "id": "e1a08a33-bb66-b05f-c870-55b219b768b6",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_region"
+          ],
+          "create_before_destroy": true
+        },
+        {
+          "index_key": "worker_0",
+          "schema_version": 0,
+          "attributes": {
+            "id": "565ba10d-d851-e52c-c57f-26eb94f1a8a2",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_region"
+          ],
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "check_slurm_nodeset_accounting",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "7b7036f0-0134-f9bf-5336-3c36e437a404",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "check_variables",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "b2d80a41-4034-326c-820d-405f18698f12",
+            "input": null,
+            "output": null,
+            "triggers_replace": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_local_nvme",
+            "terraform_data.check_nfs",
+            "terraform_data.check_region",
+            "terraform_data.check_slurm_nodeset",
+            "terraform_data.check_slurm_nodeset_accounting"
+          ],
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "module": "module.cleanup",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "disk_cleanup",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "6cf8d739-497c-c799-7bf9-3007b2cedfc5",
+            "input": null,
+            "output": null,
+            "triggers_replace": {
+              "value": {
+                "parent_id": "project-e02qk7z0pr005jndcar132"
+              },
+              "type": [
+                "object",
+                {
+                  "parent_id": "string"
+                }
+              ]
+            }
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "module": "module.filestore",
+      "mode": "data",
+      "type": "nebius_compute_v1_filesystem",
+      "name": "accounting",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": []
+    },
+    {
+      "module": "module.filestore",
+      "mode": "data",
+      "type": "nebius_compute_v1_filesystem",
+      "name": "controller_spool",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": []
+    },
+    {
+      "module": "module.filestore",
+      "mode": "data",
+      "type": "nebius_compute_v1_filesystem",
+      "name": "jail",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": []
+    },
+    {
+      "module": "module.filestore",
+      "mode": "data",
+      "type": "nebius_compute_v1_filesystem",
+      "name": "jail_submount",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": []
+    },
+    {
+      "module": "module.filestore",
+      "mode": "managed",
+      "type": "nebius_compute_v1_filesystem",
+      "name": "jail",
+      "provider": "provider[\"terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "block_size_bytes": 4096,
+            "created_at": "2026-06-23T19:25:24.102245Z",
+            "forbid_deletion": false,
+            "id": "computefilesystem-e02qtkfnrbqphfmxb0",
+            "labels": null,
+            "metadata": {},
+            "name": "soperator-spugachev-jail",
+            "parent_id": "project-e02qk7z0pr005jndcar132",
+            "resource_version": 1,
+            "size_bytes": 1099511627776,
+            "size_gibibytes": null,
+            "size_kibibytes": null,
+            "size_mebibytes": null,
+            "status": {
+              "block_size_bytes": 4096,
+              "read_only_attachments": null,
+              "read_write_attachments": null,
+              "reconciling": null,
+              "size_bytes": 1099511627776,
+              "state": "READY",
+              "state_description": null
+            },
+            "type": "NETWORK_SSD",
+            "updated_at": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "dependencies": [
+            "data.nebius_iam_v1_project.this",
+            "module.resources.data.units_data_size.k8s_ephemeral_storage_reserve",
+            "terraform_data.check_local_nvme",
+            "terraform_data.check_nfs",
+            "terraform_data.check_region",
+            "terraform_data.check_slurm_nodeset",
+            "terraform_data.check_slurm_nodeset_accounting",
+            "terraform_data.check_variables"
+          ],
+          "create_before_destroy": true
+        }
+      ]
+    },
+    {
+      "module": "module.resources",
+      "mode": "data",
+      "type": "units_data_size",
+      "name": "k8s_ephemeral_storage_reserve",
+      "provider": "provider[\"registry.terraform.io/dstaroff/units\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "bytes": 51539607552,
+            "gibibytes": 48,
+            "gigabytes": 51.539607552,
+            "kibibytes": 50331648,
+            "kilobytes": 51539607.552,
+            "mebibytes": 49152,
+            "megabytes": 51539.607552,
+            "pebibytes": 0.0000457763671875,
+            "petabytes": 0.000051539607552,
+            "tebibytes": 0.046875,
+            "terabytes": 0.051539607552
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    }
+  ],
+  "check_results": [
+    {
+      "object_kind": "var",
+      "config_addr": "var.iam_project_id",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.iam_project_id",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "terraform_data.check_nfs",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "terraform_data.check_nfs",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "module.k8s.terraform_data.check_resource_preset_sufficiency",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.k8s.terraform_data.check_resource_preset_sufficiency[\"5\"]",
+          "status": "unknown"
+        },
+        {
+          "object_addr": "module.k8s.terraform_data.check_resource_preset_sufficiency[\"0\"]",
+          "status": "unknown"
+        },
+        {
+          "object_addr": "module.k8s.terraform_data.check_resource_preset_sufficiency[\"1\"]",
+          "status": "unknown"
+        },
+        {
+          "object_addr": "module.k8s.terraform_data.check_resource_preset_sufficiency[\"2\"]",
+          "status": "unknown"
+        },
+        {
+          "object_addr": "module.k8s.terraform_data.check_resource_preset_sufficiency[\"3\"]",
+          "status": "unknown"
+        },
+        {
+          "object_addr": "module.k8s.terraform_data.check_resource_preset_sufficiency[\"4\"]",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "module.k8s.terraform_data.check_worker_gpu_fabric",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.k8s.terraform_data.check_worker_gpu_fabric[\"0\"]",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.nfs",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.nfs",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.maintenance",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.maintenance",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_login_ssh_root_public_keys",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_login_ssh_root_public_keys",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.k8s.var.node_group_accounting",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.k8s.var.node_group_accounting",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.nfs_in_k8s",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.nfs_in_k8s",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.nfs",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.nfs",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "terraform_data.check_local_nvme",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "terraform_data.check_local_nvme",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.filestore_accounting",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.filestore_accounting",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.iam_merge_request_url",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.iam_merge_request_url",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_nodesets_partitions",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_nodesets_partitions",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_nodeset_controller",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_nodeset_controller",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_nodeset_nfs",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_nodeset_nfs",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.resources",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.resources",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.worker_nodesets",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.worker_nodesets",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_nodeset_system",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_nodeset_system",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.filestore.var.accounting",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "module.filestore.var.accounting",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.o11y_profile",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.o11y_profile",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "module.slurm.terraform_data.check_worker_nodesets",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.terraform_data.check_worker_nodesets",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "module.k8s.nebius_mk8s_v1_node_group.worker_v2",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.k8s.nebius_mk8s_v1_node_group.worker_v2[0]",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.filestore.var.controller_spool",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "module.filestore.var.controller_spool",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.k8s_version",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.k8s_version",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_partition_config_type",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_partition_config_type",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.iam_tenant_id",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.iam_tenant_id",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_nodeset_accounting",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_nodeset_accounting",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.soperator_notifier",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.soperator_notifier",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.filestore.var.jail_submounts",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "module.filestore.var.jail_submounts",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.vpc_subnet_id",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.vpc_subnet_id",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.login_ssh_root_public_keys",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.login_ssh_root_public_keys",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.slurm_nodesets_partitions",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.slurm_nodesets_partitions",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.company_name",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.company_name",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "terraform_data.check_driver_presets",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "terraform_data.check_driver_presets",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.active_checks_scope",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.active_checks_scope",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.maintenance_ignore_node_groups",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.maintenance_ignore_node_groups",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.filestore.var.jail",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "module.filestore.var.jail",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "terraform_data.check_slurm_nodeset",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "terraform_data.check_slurm_nodeset[\"login\"]",
+          "status": "pass"
+        },
+        {
+          "object_addr": "terraform_data.check_slurm_nodeset[\"nfs\"]",
+          "status": "pass"
+        },
+        {
+          "object_addr": "terraform_data.check_slurm_nodeset[\"system\"]",
+          "status": "pass"
+        },
+        {
+          "object_addr": "terraform_data.check_slurm_nodeset[\"worker_0\"]",
+          "status": "pass"
+        },
+        {
+          "object_addr": "terraform_data.check_slurm_nodeset[\"controller\"]",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.active_checks_scope",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.active_checks_scope",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_nodeset_workers",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_nodeset_workers",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.o11y_iam_tenant_id",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.o11y_iam_tenant_id",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.backups_enabled",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.backups_enabled",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.k8s.var.company_name",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.k8s.var.company_name",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.nvidia_operator_gpu.var.mig_strategy",
+      "status": "pass",
+      "objects": null
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.filestore_controller_spool",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.filestore_controller_spool",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.maintenance",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.maintenance",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "module.slurm.var.node_count",
+      "status": "unknown",
+      "objects": [
+        {
+          "object_addr": "module.slurm.var.node_count",
+          "status": "unknown"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "terraform_data.check_slurm_nodeset_accounting",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "terraform_data.check_slurm_nodeset_accounting",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.nfs_in_k8s",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.nfs_in_k8s",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "resource",
+      "config_addr": "terraform_data.check_region",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "terraform_data.check_region",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.filestore_jail_submounts",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.filestore_jail_submounts",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.filestore_jail",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.filestore_jail",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "object_kind": "var",
+      "config_addr": "var.slurm_nodeset_login",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.slurm_nodeset_login",
+          "status": "pass"
+        }
+      ]
+    }
+  ]
+}
