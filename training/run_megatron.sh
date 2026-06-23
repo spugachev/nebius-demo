@@ -31,6 +31,14 @@ export NCCL_DEBUG=WARN
 export HF_HOME=/data/.cache/huggingface
 export MODELSCOPE_CACHE=/data/.cache/modelscope
 
+# Qwen3.6 is a hybrid model with Gated DeltaNet (linear-attention) layers. Their
+# backward kernel (fla's chunk_bwd_dqkwg) is numerically WRONG on Hopper with
+# Triton>=3.4 (the image has Triton 3.6), so fla requires the `tilelang` backend.
+# tilelang + z3-solver are installed --no-deps into this shared dir by
+# setup_tilelang.slurm; expose them at runtime (libz3.so.4.15 is symlinked there).
+export PYTHONPATH=/data/env/site-extra:${PYTHONPATH:-}
+export LD_LIBRARY_PATH=/data/env/site-extra/z3/lib:${LD_LIBRARY_PATH:-}
+
 echo "node_rank=$NODE_RANK master=$MASTER_ADDR:$MASTER_PORT nnodes=$NNODES nproc_per_node=$NPROC_PER_NODE"
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader | head -1
 
