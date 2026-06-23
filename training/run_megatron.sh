@@ -12,17 +12,16 @@ export MODELSCOPE_CACHE=/data/.cache/modelscope
 export NCCL_IB_DISABLE=0
 export NCCL_DEBUG=WARN
 
-# Clean venv (no --system-site-packages so pip resolver won't see
-# lightning_thunder's transformers<5 pin), but inject system torch/CUDA
-# via a .pth file so the runtime can still find them.
+# Only rank-0 builds the venv; all other ranks wait.
+# Clean venv so pip resolver doesn't see lightning_thunder's transformers<5 pin;
+# system torch/CUDA injected via .pth for runtime.
 VENV=/data/env/swift
-if [ ! -f "$VENV/bin/swift" ]; then
-    echo "Creating venv + installing ms-swift[megatron]..."
+if [ "${NODE_RANK}" = "0" ] && [ ! -f "$VENV/bin/swift" ]; then
+    echo "Rank 0: creating venv + installing ms-swift[megatron]..."
     rm -rf "$VENV"
     python -m venv "$VENV"
     PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
     SYSSITE=$(python3 -c 'import site; print(site.getsitepackages()[0])')
-    # Expose system torch/CUDA at runtime without polluting pip resolver
     echo "$SYSSITE" > "$VENV/lib/python${PYVER}/site-packages/system_torch.pth"
     "$VENV/bin/pip" install -q \
         --trusted-host pypi.org \
@@ -32,6 +31,11 @@ if [ ! -f "$VENV/bin/swift" ]; then
         "transformers>=5.5.0" "accelerate"
     echo "Install complete"
 fi
+# All ranks wait until venv is ready
+until [ -f "$VENV/bin/swift" ]; do
+    echo "Rank ${NODE_RANK}: waiting for venv on rank 0..."
+    sleep 5
+done
 source "$VENV/bin/activate"
 
 swift megatron-sft \
