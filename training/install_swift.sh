@@ -17,6 +17,7 @@ echo "--- Install ms-swift[megatron] + accelerate via uv ---"
 # uv resolves complex dep conflicts that pip's backtracking algorithm cannot.
 # ms-swift[megatron] extra is defined in git HEAD but not in any PyPI release.
 "$VENV/bin/uv" pip install \
+    --python "$VENV/bin/python" \
     --index-url https://pypi.org/simple/ \
     "ms-swift[megatron] @ git+https://github.com/modelscope/ms-swift.git" \
     "accelerate"
