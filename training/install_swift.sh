@@ -1,6 +1,7 @@
 #!/bin/bash
-# ms-swift has an internal dep conflict (datasets<3.0 vs modelscope>=1.17 which
-# pulls datasets>=3.0). Install with --no-deps to bypass, then add runtime deps.
+# Install ms-swift with Megatron support from git.
+# The [megatron] extra is defined in the GitHub source but NOT published to PyPI
+# releases — installing from git is the correct approach per ms-swift docs.
 set -e
 
 VENV=/data/env/swift
@@ -9,36 +10,21 @@ T="--trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host 
 
 python -m venv "$VENV"
 
-echo "--- Step 1: ms-swift --no-deps (bypass internal datasets conflict) ---"
-$PIP install -q $T --no-deps "ms-swift"
-
-echo "--- Step 2: core runtime deps ms-swift actually needs ---"
+echo "--- Installing ms-swift[megatron] from git ---"
+# This installs from HEAD where [megatron] extra is properly defined,
+# pulling in megatron-core and mcore-bridge at the right pinned versions.
 $PIP install -q $T \
-    "transformers>=5.5.0" \
+    "ms-swift[megatron] @ git+https://github.com/modelscope/ms-swift.git" \
     "accelerate" \
-    "peft" \
-    "datasets" \
-    "sentencepiece" \
-    "tiktoken" \
-    "jinja2" \
-    "numpy" \
-    "tqdm" \
-    "packaging" \
-    "einops" \
-    "modelscope>=1.17"
+    "transformers>=5.5.0"
 
-echo "--- Step 3: megatron-core ---"
-$PIP install -q $T "megatron-core>=0.16,<0.20"
-
-echo "--- Step 4: mcore-bridge --no-deps (datasets version conflict with ms-swift) ---"
-$PIP install -q $T --no-deps "mcore-bridge"
-
-# Add system torch/CUDA/NCCL after pip so the resolver never sees lightning_thunder.
+# Add system torch/CUDA/NCCL after pip install so the resolver never sees
+# lightning_thunder's stale package pins.
 PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 SYSSITE=$(python3 -c 'import site; print(site.getsitepackages()[0])')
 echo "$SYSSITE" > "$VENV/lib/python${PYVER}/site-packages/system_torch.pth"
 
-echo "=== Versions ==="
+echo "=== Installed versions ==="
 $PIP show ms-swift transformers megatron-core mcore-bridge 2>/dev/null | grep -E "^(Name|Version):"
 echo "=== swift ==="
 "$VENV/bin/swift" --version
