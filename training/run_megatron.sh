@@ -35,8 +35,12 @@ echo "node_rank=$NODE_RANK master=$MASTER_ADDR:$MASTER_PORT nnodes=$NNODES nproc
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader | head -1
 
 # Full SFT of an instruction-tuned MoE.
-#   PP=2 (one stage per node) x EP=8 (one expert shard per GPU) x TP=1 x DP=1 = 16 GPUs.
-#   micro_batch=1, global_batch=16 -> 16 micro-batches/step -> tiny pipeline bubble (>80% util).
+#   PP=1 x EP=8 (expert shard per GPU) x TP=1 -> DP=2 (one replica per node) = 16 GPUs.
+#   Data-parallel across nodes (not pipeline): both nodes compute in parallel on
+#   different data, only an overlappable gradient all-reduce between them -> no
+#   cross-node pipeline bubbles, sustained >80% GPU utilization. (PLAN.md documents
+#   this as the alternative when PP across nodes idles GPUs — observed exactly that.)
+#   micro_batch=1, global_batch=16, DP=2 -> grad-accum 8 per replica.
 #   recompute_granularity full -> fits activations; MoE fusions -> max throughput.
 #   save_safetensors true -> checkpoint is directly HF/vLLM-loadable (no separate export step).
 #   lr 5e-6 (not the example's 1e-5): model is already instruction-tuned (project decision).
@@ -47,7 +51,7 @@ megatron sft \
     --split_dataset_ratio            0 \
     --save_safetensors               true \
     \
-    --pipeline_model_parallel_size   2 \
+    --pipeline_model_parallel_size   1 \
     --expert_model_parallel_size     8 \
     --moe_permute_fusion             true \
     --moe_grouped_gemm               true \
