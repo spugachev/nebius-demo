@@ -15,8 +15,7 @@ echo "--- Installing ms-swift[megatron] from git ---"
 # pulling in megatron-core and mcore-bridge at the right pinned versions.
 $PIP install -q $T \
     "ms-swift[megatron] @ git+https://github.com/modelscope/ms-swift.git" \
-    "accelerate" \
-    "transformers>=5.5.0"
+    "accelerate"
 
 # Add system torch/CUDA/NCCL after pip install so the resolver never sees
 # lightning_thunder's stale package pins.
