@@ -10,8 +10,8 @@
 
 set -e
 
-MODEL_ID="Qwen/Qwen3-30B-A3B"
-MODEL_DIR="/data/models/Qwen3-30B-A3B"
+MODEL_ID="Qwen/Qwen3.6-35B-A3B"
+MODEL_DIR="/data/models/Qwen3.6-35B-A3B"
 
 export MODELSCOPE_CACHE=/data/.cache/modelscope
 

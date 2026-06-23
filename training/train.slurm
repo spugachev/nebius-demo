@@ -12,7 +12,7 @@
 set -e
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-MODEL_DIR="/data/models/Qwen3-30B-A3B-Instruct"
+MODEL_DIR="/data/models/Qwen3.6-35B-A3B"
 DATASET_TRAIN="/data/datasets/train.jsonl"
 DATASET_EVAL="/data/datasets/eval.jsonl"
 CHECKPOINT_DIR="/data/checkpoints/qwen3-fc-$(date +%Y%m%d-%H%M)"
