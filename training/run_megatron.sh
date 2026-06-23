@@ -12,14 +12,18 @@ export MODELSCOPE_CACHE=/data/.cache/modelscope
 export NCCL_IB_DISABLE=0
 export NCCL_DEBUG=WARN
 
-# Install ms-swift with Megatron support (cached on shared fs after first run)
-SWIFT_STAMP=/data/.cache/swift_installed
-if [ ! -f "$SWIFT_STAMP" ]; then
-    echo "Installing ms-swift[megatron]..."
-    pip install -q "ms-swift[megatron]" "mcore-bridge" \
-        "transformers>=5.5.0" "accelerate" "deepspeed"
-    touch "$SWIFT_STAMP"
+# Build venv on shared fs (system-site-packages inherits torch/CUDA/NCCL,
+# but we override transformers without fighting the container's pinned deps).
+VENV=/data/env/swift
+if [ ! -f "$VENV/bin/swift" ]; then
+    echo "Creating venv + installing ms-swift[megatron]..."
+    python -m venv "$VENV" --system-site-packages
+    "$VENV/bin/pip" install -q --upgrade \
+        "ms-swift[megatron]" "mcore-bridge" \
+        "transformers>=5.5.0" "accelerate"
+    echo "Install complete"
 fi
+source "$VENV/bin/activate"
 
 swift megatron-sft \
     --model_type          qwen3_moe_instruct \
