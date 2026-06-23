@@ -22,9 +22,7 @@ Deadline: June 26, 2026.
 Local (dataset preparation):
 ```bash
 uv sync
-uv run python training/normalize_sharegpt.py       # parse hypervariance → intermediate.jsonl
-uv run python training/generate_custom_examples.py  # generate process-automation examples
-uv run python training/prepare_dataset.py           # apply_chat_template → train/eval JSONL
+uv run python training/prepare_dataset.py           # download HF + parse inline + apply_chat_template → train/eval JSONL
 uv run python training/validate_dataset.py          # count, validate, token stats, sample review
 ```
 
@@ -40,6 +38,7 @@ sbatch --nodes=2 /opt/slurm-test/quickcheck/nccl_multi_node.sh   # verify inter-
 sbatch /shared/code/training/predownload.slurm                    # pre-download model weights
 sbatch /shared/code/training/train.slurm                          # launch training
 sbatch /shared/code/training/export_checkpoint.slurm              # convert checkpoint → HF format (2-node, EP must match training)
+# Or if --save_safetensors true checkpoint is directly HF-loadable: skip export, point vLLM at checkpoint dir
 bash /shared/code/inference/serve_base.sh                         # start vLLM base model
 bash /shared/code/inference/serve_tuned.sh                        # start vLLM tuned model
 python /shared/code/eval/compare.py                               # run comparison
@@ -61,7 +60,7 @@ python /shared/code/eval/compare.py                               # run comparis
 - **Catastrophic forgetting mitigation**: dataset includes ~15% non-tool conversations + negative examples. Comparison focuses on function-calling tasks only. General instruction data mix is a stretch goal.
 - **Megatron-SWIFT over TRL/DeepSpeed**: 10x throughput for MoE training (Qwen team recommendation). Standard DeepSpeed ZeRO-3 + LoRA + MoE is incompatible (DeepSpeed #7669, TRL #1268).
 - **Nebius GPU metric** is DCGM_FI_DEV_GPU_UTIL (time GPUs execute kernels), not SM occupancy or MFU.
-- **hypervariance/function-calling-sharegpt as primary dataset**: public (no gate), 87k examples. Conversion is medium effort (tool schemas embedded as free text in system messages, function calls use `<functioncall>` tags, arguments sometimes double-stringified). Expected ~75k valid examples after parsing.
+- **hypervariance/function-calling-sharegpt as primary dataset**: public (no gate), 87k examples. Parsed inline in `prepare_dataset.py` (tool schemas embedded as free text in system messages, function calls use `<functioncall>` tags, arguments sometimes double-stringified). Expected ~75k valid examples after parsing. No intermediate file — HuggingFace dataset cache makes re-runs fast.
 - **apply_chat_template for formatting**: all datasets go through tokenizer.apply_chat_template(messages, tools=tools, enable_thinking=False). Confirmed: Qwen3.6 tokenizer supports structured `tool_calls` field natively. Never manually construct `<tool_call>` XML.
 - **Thinking mode disabled**: `enable_thinking=False`. Simpler training, lower latency, cleaner for customer integration.
 - **Qwen3.6 tool-call format is XML** (`<function=name><parameter=key>value</parameter></function>`), NOT Hermes JSON. vLLM parser: `qwen3_coder`, not `hermes`.
@@ -76,11 +75,8 @@ python /shared/code/eval/compare.py                               # run comparis
 ## Dataset pipeline
 
 ```
-hypervariance/function-calling-sharegpt (87k)
-  → normalize_sharegpt.py (parse schemas from system text, parse <functioncall>, validate)
-  → intermediate.jsonl (~75k)
-  + custom_process_automation.jsonl (1k, template-generated, fixed seed)
-  → prepare_dataset.py (apply_chat_template, split)
+hypervariance/function-calling-sharegpt (HuggingFace, auto-cached)
+  → prepare_dataset.py (parse hypervariance inline, apply_chat_template, split 96/4)
   → train.jsonl (~65k) + eval.jsonl (~2.7k)
   → validate_dataset.py (counts, JSON check, token stats, sample review)
 
@@ -132,5 +128,5 @@ docs/              # architecture, monitoring, troubleshooting, demo script
 - enroot image pull can be slow on first run; consider pre-pulling or using node_local_image_disk
 - Pre-download model weights in a separate Slurm job before training (70GB download wastes GPU time)
 - save_steps=500 + save_total_limit=2 to prevent storage overflow (each checkpoint ≈ 70GB)
-- hypervariance dataset arguments are sometimes double-stringified — normalize_sharegpt.py must handle this
+- hypervariance dataset arguments are sometimes double-stringified — prepare_dataset.py must handle this
 - Full SFT on instruction-tuned model risks catastrophic forgetting — keep non-tool examples in data mix

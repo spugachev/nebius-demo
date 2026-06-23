@@ -82,161 +82,89 @@ Alternative parallelism (if PP causes issues):
 
 ## Dataset
 
-### Strategy: structured messages → apply_chat_template
+### Strategy
 
-All source datasets are normalized to a structured intermediate JSONL format with `messages` (OpenAI-style with `tool_calls`) and `tools` fields. Then `prepare_dataset.py` runs `tokenizer.apply_chat_template()` to produce the final training text in correct Qwen3.6 XML format.
+`prepare_dataset.py` does everything in one pass: downloads hypervariance from HuggingFace (cached by `datasets` library), parses it inline, merges with custom examples, applies `tokenizer.apply_chat_template()`, splits, and writes final JSONL.
 
-This approach guarantees format correctness regardless of source dataset format or Qwen version differences. Confirmed: Qwen3.6 tokenizer natively supports structured `tool_calls` in assistant messages.
+No intermediate file. HuggingFace dataset cache (`~/.cache/huggingface/datasets`) makes re-runs fast without re-downloading.
 
-### Intermediate format
+### hypervariance format details
 
-Single-turn (most examples):
-```json
-{
-  "messages": [
-    {"role": "user", "content": "Create a ticket for Acme about failed payment"},
-    {"role": "assistant", "tool_calls": [
-      {"type": "function", "function": {
-        "name": "create_ticket",
-        "arguments": {"customer": "Acme", "category": "payment_failure"}
-      }}
-    ]}
-  ],
-  "tools": [
-    {"type": "function", "function": {
-      "name": "create_ticket",
-      "description": "Create a support ticket",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "customer": {"type": "string"},
-          "category": {"type": "string"}
-        },
-        "required": ["customer", "category"]
-      }
-    }}
-  ]
-}
-```
+**Primary: hypervariance/function-calling-sharegpt** (87k examples, Apache 2.0)
+- ShareGPT format: single `conversations` column with `{from, value}` objects
+- Roles: `system`, `human`, `gpt`, `function_response`
+- Tool schemas embedded as **free text** in the system message (not a structured field)
+- Function calls: `<functioncall> {"name": "func", "arguments": {...}} </functioncall>`
+- Arguments sometimes double-stringified: `"arguments": "{\"key\": \"value\"}"` (string inside JSON)
+- ~15% are non-tool conversations (model declines) — kept for catastrophic forgetting mitigation
 
-Multi-turn with tool response (required for hypervariance dataset):
-```json
-{
-  "messages": [
-    {"role": "user", "content": "What's the status of order 12345?"},
-    {"role": "assistant", "tool_calls": [
-      {"type": "function", "function": {
-        "name": "check_order_status",
-        "arguments": {"order_id": "12345"}
-      }}
-    ]},
-    {"role": "tool", "name": "check_order_status", "content": "{\"status\": \"shipped\", \"eta\": \"2026-06-24\"}"},
-    {"role": "assistant", "content": "Order 12345 has shipped and is expected by June 24."}
-  ],
-  "tools": [...]
-}
-```
+Parsing done inline in `prepare_dataset.py`:
+1. Extract JSON tool schemas from system message free text
+2. Parse `<functioncall>` tags → structured `tool_calls` with `id`/`tool_call_id`
+3. Handle double-stringified arguments
+4. Map roles: `human`→`user`, `gpt`→`assistant`, `function_response`→`tool`
+5. Skip examples with unparseable schemas or malformed calls (~10-15% yield loss)
 
-For non-tool-call conversations (model declines to call a tool), the assistant message has `content` only, no `tool_calls`.
 
-### Final ms-swift format (produced by prepare_dataset.py)
+### Output format (ms-swift JSONL)
+
+`prepare_dataset.py` produces `{"messages": [...]}` where the assistant turn content is already rendered XML — result of calling `apply_chat_template(..., tokenize=False)` and extracting the assistant content. No `tools` field in output (tools are rendered into the system message by the template).
 
 ```json
 {
   "messages": [
-    {"role": "system", "content": "# Tools\n\nYou may call one or more functions...\n\n<tools>\n[...]\n</tools>"},
+    {"role": "system", "content": "# Tools\n\nYou may call one or more functions...\n\n<tools>\n[{\"type\": \"function\", ...}]\n</tools>"},
     {"role": "user", "content": "Create a ticket for Acme about failed payment"},
     {"role": "assistant", "content": "<tool_call>\n<function=create_ticket>\n<parameter=customer>Acme</parameter>\n<parameter=category>payment_failure</parameter>\n</function>\n</tool_call>"}
   ]
 }
 ```
 
-### Sources
-
-**Primary: hypervariance/function-calling-sharegpt** (87k examples)
-- Public, Apache 2.0, no access gate
-- ShareGPT format: single `conversations` column with `from`/`value` objects
-- Roles: `system`, `human`, `gpt`, `function_response`
-- Tool schemas are embedded as free text in the system message `value` (not a separate structured field)
-- Function calls use `<functioncall>` tags: `<functioncall> {"name": "func", "arguments": {...}} </functioncall>`
-- Arguments are sometimes double-stringified (JSON string inside JSON)
-- ~15% of examples are non-tool conversations (model declines) -- useful for catastrophic forgetting mitigation
-- Filtered from glaive-v2 (removed invalid JSON, code examples)
-
-**Conversion effort (normalize_sharegpt.py)**: MEDIUM, not low as initially estimated.
-- Parse system message free text to extract JSON function schemas → structured `tools` field
-- Parse `<functioncall>` tags from assistant messages → structured `tool_calls`
-- Handle double-stringified arguments (e.g., `'{"key": "value"}'` string inside JSON)
-- Map roles: `human`→`user`, `gpt`→`assistant`, `function_response`→`tool`
-- Validate: skip examples with unparseable schemas or malformed function calls
-- Expected yield: ~75-80k valid examples from 87k raw (some will fail parsing)
-
-**Custom supplement: process-automation examples** (1,000 examples)
-- Generated by `generate_custom_examples.py` using templates with fixed random seed for reproducibility
-- 16 tool schemas matching customer domain: create_ticket, update_ticket, close_ticket, create_crm_lead, update_crm_record, schedule_meeting, cancel_meeting, approve_invoice, reject_invoice, extract_invoice_fields, send_follow_up_email, assign_task, escalate_case, search_policy, check_order_status, get_customer_info
-- Distribution: ~75% normal tool calls, ~10% no tool needed, ~10% should clarify (missing required args), ~5% ambiguous tool choice
+Thinking mode disabled: `enable_thinking=False` in `apply_chat_template`. Simpler training signal, lower inference latency, cleaner for customer integration.
 
 ### Splits
 
 ```
-Train:   ~65,000  (62k hypervariance valid + 750 custom tool-call + 250 custom negative)
-Eval:     ~2,700  (2.5k hypervariance held-out + 200 custom held-out)
+Train:   ~65,000  (96% of valid hypervariance examples)
+Eval:     ~2,700  (4% held-out)
 ```
 
-The 50 demo/test prompts are hand-written in `eval/prompts.jsonl` (not pipeline output). See Repository Structure.
-
-Note: train size reduced from 80k to ~65k to account for parsing failures during normalization. Still produces ~130M tokens, sufficient for ~3 hours of training.
-
-### Thinking mode
-
-Disabled (`enable_thinking=False` in apply_chat_template). Reasons:
-- Simpler training signal (no `<think>` blocks to learn)
-- Lower inference latency (no reasoning preamble)
-- Cleaner for customer integration
-- Can be shown as opt-in feature in demo
+50 demo/test prompts are hand-written in `eval/prompts.jsonl` (not pipeline output).
 
 ### Training data volume estimate
 
-- ~65k examples × ~2000 tokens avg = ~130M tokens
-- With packing into 8192 seq length ≈ 16k packed sequences
-- global_batch_size=16 → ~1,000 steps per epoch
-- At ~10s/step = ~2.8 hours for 1 epoch
-- Sufficient for meaningful GPU dashboard graphs
+- ~85k examples × ~436 tokens avg = ~37M tokens
+- With packing into 8192 seq length ≈ 4,500 packed sequences
+- global_batch_size=16 → ~280 steps per epoch
+- At ~10s/step ≈ 0.8h per epoch
+- **Run 3 epochs** → ~2.5h total training (sufficient for GPU dashboard graphs)
+
+Note: examples are short (function-calling conversations are concise). This is normal for the domain.
+Data sufficiency is not a concern — 85k examples is more than enough for fine-tuning an already-instruction-tuned model on a narrow task.
 
 ### Dataset pipeline
 
 ```
-hypervariance/function-calling-sharegpt (87k, HuggingFace)
+hypervariance/function-calling-sharegpt (HuggingFace, auto-cached)
          │
-         ▼
-    normalize_sharegpt.py
-    (parse system text → extract tool schemas,
-     parse <functioncall> → structured tool_calls,
-     map roles, validate, filter broken examples)
-         │
-         ▼
-    intermediate.jsonl (~75k valid structured examples)
-         │
-         ├── + custom_process_automation.jsonl (1k, template-generated with fixed seed)
+         ├── generate_custom_examples.py (1k examples, fixed seed=42)
+         │        └── custom_process_automation.jsonl
          │
          ▼
     prepare_dataset.py
-    (load Qwen3.6 tokenizer,
-     apply_chat_template(messages, tools, enable_thinking=False),
-     split train/eval/demo,
-     validate output,
-     write final JSONL)
+    (load HF dataset, parse hypervariance inline,
+     merge with custom examples,
+     apply_chat_template per example,
+     split 96% train / 4% eval,
+     write JSONL)
          │
          ▼
-    train.jsonl  (~65k, ready for Megatron-SWIFT)
-    eval.jsonl   (~2.7k held-out)
+    train.jsonl  (~65k)
+    eval.jsonl   (~2.7k)
          │
          ▼
     validate_dataset.py
-    (count examples per split,
-     check JSON validity,
-     print token length distribution,
-     sample 5 examples for manual review)
+    (counts, JSON validity, token length distribution, 5 sample examples)
 ```
 
 ## GPU Utilization Strategy
@@ -371,7 +299,9 @@ Three levels:
 #SBATCH --time=01:00:00
 #SBATCH --output=/shared/logs/%x-%j.out
 
+# Must match HF_HOME in run_megatron.sh exactly — mismatch causes 70GB re-download during training
 export HF_HOME=/shared/.cache/huggingface
+export MODELSCOPE_CACHE=/shared/.cache
 huggingface-cli download Qwen/Qwen3.6-35B-A3B
 ```
 
@@ -438,7 +368,7 @@ megatron sft \
     --lr 5e-6 \
     --lr_warmup_fraction 0.05 \
     --min_lr 5e-7 \
-    --num_train_epochs 1 \
+    --num_train_epochs 3 \
     --max_length 8192 \
     --dataloader_num_workers 8 \
     --sequence_parallel true \
@@ -465,79 +395,99 @@ NNODES=... megatron sft \
     --resume_from_checkpoint /shared/checkpoints/qwen36-moe-fc/checkpoint-500
 ```
 
-Key changes from previous version:
-- Split into train.slurm + run_megatron.sh to avoid shell quoting issues
-- Added `--val_dataset` for evaluation during training
-- `--save_steps 500` (was 100) to prevent storage overflow: 2 checkpoints × ~70GB = 140GB
-- `--save_total_limit 2` to keep only the last 2 checkpoints
-- Added `--eval_steps 200` (less frequent eval to avoid slowdowns)
-- `NCCL_DEBUG=WARN` instead of INFO (less log noise)
-- `NODE_RANK` now uses `SLURM_PROCID` (more portable than `SLURM_NODEID`)
-- `srun --export=ALL` to guarantee MASTER_ADDR propagation
-- LR lowered to `5e-6` (from 1e-5): full SFT on an already-instruction-tuned model at 1e-5 risks unstable loss; 5e-6 is safer
-- Removed `--load_from_cache_file true` (not a valid ms-swift arg)
 
 ### Checkpoint export
 
-Convert Megatron checkpoint to HuggingFace format for vLLM. **Export parallelism must match training parallelism** (EP=8, PP=2). This requires both nodes:
+Convert Megatron checkpoint to HuggingFace format for vLLM. **Export parallelism must match training parallelism** (EP=8, PP=2). Uses the same sbatch + separate script pattern as training to avoid shell quoting issues:
 
+**export_checkpoint.slurm:**
 ```bash
-# export_checkpoint.sh — run as a 2-node Slurm job
 #!/bin/bash
 #SBATCH --job-name=export-checkpoint
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=8
+#SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=8
 #SBATCH --exclusive
 #SBATCH --time=01:00:00
 #SBATCH --output=/shared/logs/%x-%j.out
 
-# Find the latest checkpoint (ms-swift names them checkpoint-N, not checkpoint-final)
-CKPT=$(ls -d /shared/checkpoints/qwen36-moe-fc/checkpoint-* | sort -V | tail -1)
+set -euo pipefail
 
-srun --export=ALL bash -c "
-  NNODES=2 NODE_RANK=\${SLURM_PROCID} \
-  NPROC_PER_NODE=8 \
-  megatron export \
-      --mcore_model ${CKPT} \
-      --output_dir /shared/models/qwen36-moe-fc-hf \
-      --to_hf true \
-      --pipeline_model_parallel_size 2 \
-      --expert_model_parallel_size 8 \
-      --test_convert_precision true
-"
+# ms-swift names checkpoints checkpoint-N, not checkpoint-final
+export CKPT=$(ls -d /shared/checkpoints/qwen36-moe-fc/checkpoint-* | sort -V | tail -1)
+export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_PORT=29501
+
+srun --export=ALL /shared/code/training/run_export.sh
 ```
 
-Alternative: if `--save_safetensors true` was used during training with mcore-bridge, the checkpoint may already be HF-loadable. Test with:
+**run_export.sh:**
+```bash
+#!/bin/bash
+set -euo pipefail
+
+export HF_HOME=/shared/.cache/huggingface
+export MODELSCOPE_CACHE=/shared/.cache
+
+NNODES=2 \
+NODE_RANK=${SLURM_PROCID} \
+MASTER_ADDR=${MASTER_ADDR} \
+MASTER_PORT=${MASTER_PORT} \
+NPROC_PER_NODE=8 \
+megatron export \
+    --mcore_model ${CKPT} \
+    --output_dir /shared/models/qwen36-moe-fc-hf \
+    --to_hf true \
+    --pipeline_model_parallel_size 2 \
+    --expert_model_parallel_size 8 \
+    --test_convert_precision true
+```
+
+**Fast-path check** — try this first. If `--save_safetensors true` was used during training with mcore-bridge, the checkpoint may already be HF-loadable:
 ```python
 from transformers import AutoModelForCausalLM
-model = AutoModelForCausalLM.from_pretrained("/shared/checkpoints/qwen36-moe-fc/checkpoint-500")
+model = AutoModelForCausalLM.from_pretrained(
+    "/shared/checkpoints/qwen36-moe-fc/checkpoint-500", device_map="cpu"
+)
 ```
-If that succeeds, skip the export step entirely.
+If that succeeds, skip the export step entirely and point vLLM directly at the checkpoint directory.
 
 ## Exercise 2: Inference Comparison
 
 ### Serving
 
-Two vLLM instances. 35B MoE in bf16 ≈ 70GB, fits on a single H200 (141GB). Use TP=2 for comfortable memory headroom (not TP=8 which adds unnecessary communication overhead):
+Two vLLM instances. 35B MoE in bf16 ≈ 70GB, fits on a single H200 (141GB). Use TP=2 for comfortable memory headroom (not TP=8 which adds unnecessary communication overhead).
+
+**How to run on Soperator**: vLLM servers need a GPU worker node, not the login node. Use `salloc` to get an interactive allocation:
 
 ```bash
-# Base model (2 GPUs, node 0)
+# From login node: allocate 1 node interactively
+salloc --nodes=1 --gpus-per-node=4 --exclusive --time=02:00:00
+# Then SSH to the allocated node, or use srun:
+srun --pty bash
+```
+
+**serve_base.sh** (run on worker node):
+```bash
 CUDA_VISIBLE_DEVICES=0,1 vllm serve Qwen/Qwen3.6-35B-A3B \
     --tensor-parallel-size 2 \
     --tool-call-parser qwen3_coder \
     --enable-auto-tool-choice \
+    --chat-template-kwargs '{"enable_thinking": false}' \
     --host 0.0.0.0 --port 8000
+```
 
-# Fine-tuned model (2 GPUs, node 0)
+**serve_tuned.sh** (run on same worker node, different terminal):
+```bash
 CUDA_VISIBLE_DEVICES=2,3 vllm serve /shared/models/qwen36-moe-fc-hf \
     --tensor-parallel-size 2 \
     --tool-call-parser qwen3_coder \
     --enable-auto-tool-choice \
+    --chat-template-kwargs '{"enable_thinking": false}' \
     --host 0.0.0.0 --port 8001
 ```
 
-Both can run simultaneously on the same node (only 4 GPUs needed total).
+Both run simultaneously on the same node (4 GPUs total). `--chat-template-kwargs '{"enable_thinking": false}'` matches the training configuration — without this, Qwen3.6 may enable thinking mode and produce `<think>...</think>` preambles that break the tool call parser.
 
 ### Comparison
 
@@ -585,14 +535,13 @@ nebius-demo/
     outputs.tf
 
   training/
-    normalize_sharegpt.py              # convert hypervariance ShareGPT → intermediate JSONL
-    generate_custom_examples.py        # generate process-automation examples (template + fixed seed)
-    prepare_dataset.py                 # apply_chat_template → final ms-swift JSONL + train/eval split
+    prepare_dataset.py                 # download HF dataset, parse inline, apply_chat_template → train/eval JSONL
     validate_dataset.py                # count, validate JSON, token stats, sample review
     train.slurm                        # Slurm job script (sets MASTER_ADDR, calls srun)
     run_megatron.sh                    # Megatron-SWIFT training command (executed by srun per node)
     predownload.slurm                  # pre-download model weights to shared cache (separate from training)
-    export_checkpoint.slurm            # Megatron → HuggingFace conversion (2-node job, EP must match training)
+    export_checkpoint.slurm            # Megatron → HuggingFace conversion (2-node Slurm job)
+    run_export.sh                      # megatron export command (executed by srun per node)
 
   inference/
     serve_base.sh                      # vLLM base model (TP=2, port 8000)
@@ -610,18 +559,12 @@ nebius-demo/
     demo_script.md                     # presentation outline
 ```
 
-Changes from previous version:
-- Added `validate_dataset.py` (was missing)
-- Added `run_megatron.sh` (split from train.slurm to fix quoting)
-- Added `predownload.slurm` (model download separate from training)
-- Consolidated eval: `eval/report.py` removed, `inference/compare.py` moved to `eval/compare.py`. Single script does: call endpoints → evaluate → report.
-- Removed `eval/evaluate.py` (merged into compare.py)
 
 ## Risks and Fallbacks
 
 | Risk | Likelihood | Impact | Fallback |
 |------|-----------|--------|----------|
-| Qwen3.6-35B-A3B not supported in Megatron-SWIFT | Medium | High | Use Qwen3-30B-A3B-Instruct-2507 (tested) |
+| Qwen3.6-35B-A3B not supported in Megatron-SWIFT | Medium | High | Use Qwen3-30B-A3B-Instruct-2507 (tested). **Warning**: Qwen3-30B uses Hermes JSON format (not XML). Must also change: vLLM `--tool-call-parser hermes`, prompts.jsonl expected format, compare.py parsing. |
 | Megatron-SWIFT install fails in Soperator jail | Medium | High | Use ModelScope Docker image via enroot; if that fails, NGC PyTorch + pip |
 | Checkpoint export fails (parallelism mismatch) | Low | High | Check EP=8 PP=2 in export Slurm script; alternatively test if `--save_safetensors true` checkpoint is directly loadable by vLLM |
 | GPU utilization < 80% | Low | Medium | Increase global_batch_size, max_length; enable all fusion flags |
