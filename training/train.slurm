@@ -17,10 +17,10 @@ DATASET_TRAIN="/data/datasets/train.jsonl"
 DATASET_EVAL="/data/datasets/eval.jsonl"
 CHECKPOINT_DIR="/data/checkpoints/qwen3-fc-$(date +%Y%m%d-%H%M)"
 LOG_DIR="/data/logs"
-IMAGE="/data/images/swift431.sqsh"   # official ms-swift image, imported once
+IMAGE="/data/images/swift431-tl.sqsh"   # official ms-swift image + tilelang (build_image_tl.slurm)
 
 if [ ! -f "$IMAGE" ]; then
-    echo "ERROR: $IMAGE not found. Run import_image.slurm first."
+    echo "ERROR: $IMAGE not found. Run import_image.slurm then build_image_tl.slurm first."
     exit 1
 fi
 
