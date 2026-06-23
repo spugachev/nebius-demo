@@ -79,7 +79,7 @@ nfs_in_k8s = {
 #                                                         Slurm                                                        #
 #----------------------------------------------------------------------------------------------------------------------#
 
-slurm_operator_version = "4.0.2"
+slurm_operator_version = "4.1.0"
 slurm_operator_stable  = true
 
 slurm_nodesets_partitions = [
@@ -114,59 +114,6 @@ slurm_nodeset_system = {
     type                 = "NETWORK_SSD"
     size_gibibytes       = 128
     block_size_kibibytes = 4
-  }
-}
-
-system_resources = {
-  rest = {
-    cpu_cores                   = 8
-    memory_gibibytes            = 32
-    ephemeral_storage_gibibytes = 5
-  }
-  exporter = {
-    cpu_cores                   = 2
-    memory_gibibytes            = 4
-    ephemeral_storage_gibibytes = 2
-  }
-  mariadb = {
-    cpu_cores                   = 4
-    memory_gibibytes            = 16
-    ephemeral_storage_gibibytes = 16
-  }
-  node_configurator = {
-    requests = {
-      cpu_cores        = 0.5
-      memory_gibibytes = 0.25
-    }
-    limits = {
-      memory_gibibytes = 0.25
-    }
-  }
-  slurm_operator = {
-    requests = {
-      cpu_cores        = 1
-      memory_gibibytes = 4
-    }
-    limits = {
-      memory_gibibytes = 4
-    }
-  }
-  slurm_checks = {
-    requests = {
-      cpu_cores        = 1
-      memory_gibibytes = 4
-    }
-    limits = {
-      memory_gibibytes = 4
-    }
-  }
-  kruise_daemon = {
-    cpu_cores        = 0.5
-    memory_gibibytes = 2
-  }
-  dcgm_exporter = {
-    cpu_cores        = 0.05
-    memory_gibibytes = 0.5
   }
 }
 
@@ -288,10 +235,6 @@ soperator_notifier = {
   enabled = false
 }
 
-nccl_inspector_profiling = {
-  enabled = false
-}
-
 # Known Terraform recipe bug — must be false
 public_o11y_enabled = false
 
@@ -331,5 +274,4 @@ nvidia_config_lines = [
 active_checks_scope = "essential"
 
 slurm_shared_memory_size_gibibytes = 64
-slurm_topology_block_size          = null
 maintenance_ignore_node_groups     = ["controller", "nfs"]

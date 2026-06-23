@@ -240,12 +240,6 @@ variable "filestore_jail_submounts" {
   }
 }
 
-variable "enroot_direct_squashfs_enabled" {
-  description = "Enable Pyxis/Enroot direct SquashFS startup through squashfuse. Node-local image-storage disk creation remains controlled by node_local_image_disk.enabled."
-  type        = bool
-  default     = true
-}
-
 variable "filestore_accounting" {
   description = "Shared filesystem to be used for accounting DB"
   type = object({
@@ -309,27 +303,6 @@ variable "nfs" {
     error_message = "NFS size must be a multiple of 93 GiB and maximum value is 262074 GiB"
   }
 }
-resource "terraform_data" "check_nfs_exclusivity" {
-  lifecycle {
-    precondition {
-      condition     = !(var.nfs.enabled && var.nfs_in_k8s.enabled)
-      error_message = "nfs.enabled and nfs_in_k8s.enabled cannot both be true. Choose one NFS backend: either an external NFS server (nfs.enabled) or the in-cluster NFS provisioner (nfs_in_k8s.enabled)."
-    }
-  }
-}
-
-resource "terraform_data" "check_jail_submount_paths" {
-  lifecycle {
-    precondition {
-      condition = alltrue([
-        for sm in var.filestore_jail_submounts :
-        sm.mount_path != "/home"
-      ])
-      error_message = "filestore_jail_submounts must not use \"/home\" as mount_path. That path is reserved for home directories, and backing /home with shared filestore causes severe performance degradation."
-    }
-  }
-}
-
 resource "terraform_data" "check_nfs" {
   depends_on = [
     terraform_data.check_region,
@@ -395,24 +368,6 @@ If NFS in K8s is enabled, filesystem_type, disk_type, and size_gibibytes must be
 Additionally, if disk_type is NETWORK_SSD_IO_M3 or NETWORK_SSD_NON_REPLICATED, size_gibibytes must be a multiple of 93.
 EOT
   }
-
-  validation {
-    condition = (
-      !var.nfs_in_k8s.enabled
-      || var.nfs_in_k8s.disk_type == null
-      || contains(["NETWORK_SSD", "NETWORK_SSD_NON_REPLICATED", "NETWORK_SSD_IO_M3"], var.nfs_in_k8s.disk_type)
-    )
-    error_message = "nfs_in_k8s.disk_type must be one of: NETWORK_SSD, NETWORK_SSD_NON_REPLICATED, NETWORK_SSD_IO_M3."
-  }
-
-  validation {
-    condition = (
-      !var.nfs_in_k8s.enabled
-      || var.nfs_in_k8s.filesystem_type == null
-      || contains(["ext4", "xfs"], var.nfs_in_k8s.filesystem_type)
-    )
-    error_message = "nfs_in_k8s.filesystem_type must be one of: ext4, xfs."
-  }
 }
 
 # endregion nfs-server
@@ -445,7 +400,6 @@ variable "platform_cuda_versions" {
     gpu-b200-sxm-a = "13.0.2"
     gpu-b300-sxm   = "13.0.2"
     gpu-rtx6000    = "13.0.2"
-    gpu-gb300      = "13.0.2"
   }
 }
 
@@ -464,7 +418,6 @@ variable "platform_driver_presets" {
     gpu-b200-sxm-a = "cuda13.0"
     gpu-b300-sxm   = "cuda13.0"
     gpu-rtx6000    = "cuda13.0"
-    gpu-gb300      = "cuda13.0"
   }
 }
 
@@ -488,40 +441,12 @@ variable "k8s_cluster_node_ssh_access_users" {
   }))
   nullable = false
   default  = []
-
-  validation {
-    condition = alltrue([
-      for u in var.k8s_cluster_node_ssh_access_users : length(u.public_keys) >= 1
-    ])
-    error_message = "Each entry in k8s_cluster_node_ssh_access_users must have at least one public key."
-  }
-
-  validation {
-    condition = alltrue(flatten([
-      for u in var.k8s_cluster_node_ssh_access_users : [
-        for k in u.public_keys : length(k) > 0
-      ]
-    ]))
-    error_message = "Public keys in k8s_cluster_node_ssh_access_users must not be empty strings."
-  }
-}
-
-variable "k8s_cluster_node_ssh_access_public_ip" {
-  description = "Assign public IP addresses to k8s nodes when k8s_cluster_node_ssh_access_users is configured."
-  type        = bool
-  nullable    = false
-  default     = false
 }
 
 variable "etcd_cluster_size" {
-  description = "Size of the etcd cluster. Must be a positive odd number (1, 3, 5…) to maintain quorum."
+  description = "Size of the etcd cluster."
   type        = number
   default     = 3
-
-  validation {
-    condition     = var.etcd_cluster_size >= 1 && var.etcd_cluster_size % 2 == 1
-    error_message = "etcd_cluster_size must be a positive odd number (1, 3, 5…) to maintain quorum."
-  }
 }
 
 # endregion k8s
@@ -544,58 +469,26 @@ variable "slurm_operator_stable" {
 
 variable "slurm_nodesets_partitions" {
   description = <<-EOT
-    Partition configuration for generated Slurm NodeSets.
-    slurm_nodeset_refs must reference generated Slurm NodeSet names. A non-GB worker keeps its Terraform worker nodeset name.
-    A GB300 worker nodeset expands into rack-scoped Slurm NodeSets named <name>-rack<rack>.
     Users must not remove the "hidden" partition.
     Users can modify the "main" partition, but should not remove it (there must be at least one default partition).
   EOT
   type = list(object({
-    name               = string
-    is_all             = optional(bool, false)
-    slurm_nodeset_refs = optional(list(string), [])
-    config             = string
+    name         = string
+    is_all       = optional(bool, false)
+    nodeset_refs = optional(list(string), [])
+    config       = string
   }))
   default = []
 
   validation {
-    condition = alltrue([
-      for p in var.slurm_nodesets_partitions :
-      p.is_all || length(p.slurm_nodeset_refs) > 0
-    ])
-    error_message = "Each partition must have either is_all = true or non-empty slurm_nodeset_refs."
-  }
-
-  validation {
-    condition = alltrue([
-      for p in var.slurm_nodesets_partitions :
-      !(p.is_all && length(p.slurm_nodeset_refs) > 0)
-    ])
-    error_message = "A partition cannot have both is_all = true and non-empty slurm_nodeset_refs."
-  }
-
-  validation {
-    # Validate partition refs against generated Slurm NodeSet names, not raw
-    # Terraform worker nodeset names. Example: gpu-gb300 worker "primtrain" with
-    # size = 36 generates ["primtrain-rack0", "primtrain-rack1"];
-    # non-GB worker "worker" stays "worker".
     condition = length(setsubtract(
       toset(flatten([
-        for p in var.slurm_nodesets_partitions : coalesce(p.slurm_nodeset_refs, [])
+        for p in var.slurm_nodesets_partitions : coalesce(p.nodeset_refs, [])
       ])),
-      toset(flatten([
-        for w in var.slurm_nodeset_workers :
-        w.resource.platform == "gpu-gb300" ? [
-          for rack in range(max(1, try(ceil(w.size / 18), 0))) : format(
-            "%s-rack%d",
-            w.name,
-            rack,
-          )
-        ] : [w.name]
-      ]))
+      toset([for w in var.slurm_nodeset_workers : w.name])
     )) == 0
 
-    error_message = "All slurm_nodesets_partitions[].slurm_nodeset_refs must reference generated Slurm NodeSet names. GB300 worker nodesets generate <name>-rack<rack> names; other worker nodesets use <name>."
+    error_message = "All slurm_nodesets_partitions[].nodeset_refs must reference existing slurm_nodeset_workers[].name values."
   }
 }
 
@@ -676,66 +569,6 @@ variable "slurm_nodeset_system" {
     condition     = var.slurm_nodeset_system.min_size >= 3
     error_message = "Minimum size of the system node group must be at least 3."
   }
-  validation {
-    condition     = var.slurm_nodeset_system.max_size >= var.slurm_nodeset_system.min_size
-    error_message = "System nodeset max_size must be greater than or equal to min_size."
-  }
-}
-
-variable "system_resources" {
-  description = "Resources of system components."
-  type = object({
-    rest = optional(object({
-      cpu_cores                   = number
-      memory_gibibytes            = number
-      ephemeral_storage_gibibytes = number
-    }))
-    exporter = optional(object({
-      cpu_cores                   = number
-      memory_gibibytes            = number
-      ephemeral_storage_gibibytes = number
-    }))
-    mariadb = optional(object({
-      cpu_cores                   = number
-      memory_gibibytes            = number
-      ephemeral_storage_gibibytes = number
-    }))
-    node_configurator = optional(object({
-      requests = object({
-        cpu_cores        = number
-        memory_gibibytes = number
-      })
-      limits = object({
-        memory_gibibytes = number
-      })
-    }))
-    slurm_operator = optional(object({
-      requests = object({
-        cpu_cores        = number
-        memory_gibibytes = number
-      })
-      limits = object({
-        memory_gibibytes = number
-      })
-    }))
-    slurm_checks = optional(object({
-      requests = object({
-        cpu_cores        = number
-        memory_gibibytes = number
-      })
-      limits = object({
-        memory_gibibytes = number
-      })
-    }))
-    kruise_daemon = optional(object({
-      cpu_cores        = number
-      memory_gibibytes = number
-    }))
-    dcgm_exporter = optional(object({
-      cpu_cores        = number
-      memory_gibibytes = number
-    }))
-  })
 }
 
 variable "slurm_nodeset_controller" {
@@ -801,11 +634,6 @@ variable "slurm_nodeset_workers" {
       policy          = optional(string)
       reservation_ids = optional(list(string))
     }))
-    nvlink = optional(object({
-      enabled = optional(bool, false)
-      type    = optional(string, "GB300")
-    }), {})
-    placement_policy_nodes         = optional(list(string))
     features                       = optional(list(string))
     create_partition               = optional(bool)
     ephemeral_nodes                = optional(bool, false)
@@ -819,7 +647,6 @@ variable "slurm_nodeset_workers" {
       mount_path      = optional(string, "/mnt/local-nvme")
       filesystem_type = optional(string, "ext4")
     }), {})
-    max_pods = optional(number, 32)
     node_local_image_disk = object({
       enabled = bool
       spec = optional(object({
@@ -856,95 +683,13 @@ variable "slurm_nodeset_workers" {
   }]
 
   validation {
-    # GB300 racks contain 18 nodes. Production requests must use whole racks;
-    # non-production can request a single partial rack for small test clusters.
-    # Examples: production size = 36 passes, production size = 10 fails,
-    # non-production size = 10 passes, non-production size = 20 fails.
-    condition = alltrue([
-      for worker in var.slurm_nodeset_workers :
-      worker.resource.platform == "gpu-gb300" ? (
-        var.production
-        ? try(worker.size % 18 == 0, false)
-        : try(worker.size < 18 || worker.size % 18 == 0, false)
-      ) : true
-    ])
-    error_message = "GB300 worker nodesets must have size divisible by 18 in production. Non-production GB300 nodesets may use one partial rack with size less than 18."
-  }
-
-  validation {
-    # NVLink is modeled only for GB300 here: GB300 must enable it and all other
-    # platforms must leave it disabled.
-    condition = alltrue([
-      for worker in var.slurm_nodeset_workers :
-      worker.resource.platform == "gpu-gb300" ? try(worker.nvlink.enabled == true, false) : !try(worker.nvlink.enabled == true, false)
-    ])
-    error_message = "NVLink must be enabled for gpu-gb300 worker nodesets and disabled for all other platforms."
-  }
-
-  validation {
-    # The provider requires a type value for NVLink instance groups. This
-    # installation path supports only GB300 groups.
-    condition = alltrue([
-      for worker in var.slurm_nodeset_workers :
-      worker.resource.platform == "gpu-gb300" ? try(coalesce(worker.nvlink.type, "GB300") == "GB300", false) : true
-    ])
-    error_message = "GB300 worker nodesets must use nvlink.type = \"GB300\"."
-  }
-
-  validation {
-    # Keep the rack-size rule next to the NVLink-specific settings too, so a
-    # future non-GB NVLink platform must update this validation deliberately.
-    condition = alltrue([
-      for worker in var.slurm_nodeset_workers :
-      try(worker.nvlink.enabled == true, false) && worker.resource.platform == "gpu-gb300" ? (
-        var.production
-        ? try(worker.size % 18 == 0, false)
-        : try(worker.size < 18 || worker.size % 18 == 0, false)
-      ) : true
-    ])
-    error_message = "NVLink-enabled GB300 worker nodesets must have size divisible by 18 in production. Non-production GB300 nodesets may use one partial rack with size less than 18."
-  }
-
-  validation {
-    # placement_policy_nodes is a per-worker list. In production it must be
-    # absent or empty; non-production may pin node groups to provider nodes.
-    condition = !var.production || alltrue([
-      for worker in var.slurm_nodeset_workers :
-      length(coalesce(worker.placement_policy_nodes, [])) == 0
-    ])
-    error_message = "Worker placement_policy_nodes can only be set when production = false."
-  }
-
-  validation {
     condition     = length(var.slurm_nodeset_workers) > 0
     error_message = "At least one worker nodeset must be provided."
   }
 
   validation {
-    # Compare the set of generated worker NodeSet names with the full generated
-    # name list; a shorter distinct list means two inputs collide after
-    # expansion. Example collision: two non-GB workers named "worker" both
-    # generate "worker".
-    condition = length(distinct(flatten([
-      for worker in var.slurm_nodeset_workers :
-      worker.resource.platform == "gpu-gb300" ? [
-        for rack in range(max(1, try(ceil(worker.size / 18), 0))) : format(
-          "%s-rack%d",
-          worker.name,
-          rack,
-        )
-      ] : [worker.name]
-      ]))) == length(flatten([
-      for worker in var.slurm_nodeset_workers :
-      worker.resource.platform == "gpu-gb300" ? [
-        for rack in range(max(1, try(ceil(worker.size / 18), 0))) : format(
-          "%s-rack%d",
-          worker.name,
-          rack,
-        )
-      ] : [worker.name]
-    ]))
-    error_message = "All effective worker nodeset names must be unique. GB300 worker nodesets are named <name>-rack<rack>; other worker nodesets use <name>."
+    condition     = length(distinct([for worker in var.slurm_nodeset_workers : worker.name])) == length(var.slurm_nodeset_workers)
+    error_message = "All worker nodeset names must be unique."
   }
 
   validation {
@@ -961,14 +706,6 @@ variable "slurm_nodeset_workers" {
       worker.autoscaling.min_size == null || worker.autoscaling.min_size <= worker.size
     ])
     error_message = "Worker nodeset autoscaling.min_size must be less than or equal to size."
-  }
-
-  validation {
-    condition = alltrue([
-      for worker in var.slurm_nodeset_workers :
-      worker.max_pods > 0
-    ])
-    error_message = "Worker nodeset max_pods must be greater than 0."
   }
 
   validation {
@@ -1076,8 +813,7 @@ variable "slurm_nodeset_workers" {
 variable "slurm_nodeset_login" {
   description = "Configuration of Slurm Login node set."
   type = object({
-    size               = number
-    node_group_enabled = optional(bool, true)
+    size = number
     resource = object({
       platform = string
       preset   = string
@@ -1107,34 +843,7 @@ variable "slurm_nodeset_login" {
   }
   validation {
     condition     = var.slurm_nodeset_login.size >= 1
-    error_message = "Login replica count (slurm_nodeset_login.size) must be at least 1."
-  }
-}
-
-variable "gb300_login_pod_worker_reserve" {
-  description = "Resources requested by each GB300 login pod and reserved from GB300 worker node capacity when login pods run on worker nodes instead of a dedicated CPU login node group."
-  type = object({
-    cpu_cores                   = number
-    memory_gibibytes            = number
-    ephemeral_storage_gibibytes = number
-  })
-  nullable = false
-  default = {
-    cpu_cores                   = 8
-    memory_gibibytes            = 32
-    ephemeral_storage_gibibytes = 128
-  }
-
-  validation {
-    condition = (
-      !anytrue([for worker in var.slurm_nodeset_workers : worker.resource.platform == "gpu-gb300"]) ||
-      (
-        var.gb300_login_pod_worker_reserve.cpu_cores > 0 &&
-        var.gb300_login_pod_worker_reserve.memory_gibibytes > 0 &&
-        var.gb300_login_pod_worker_reserve.ephemeral_storage_gibibytes > 0
-      )
-    )
-    error_message = "GB300 login pod worker reserve values must be greater than zero when GB300 workers are configured."
+    error_message = "Size of the login node group must be at least 1."
   }
 }
 
@@ -1226,21 +935,10 @@ resource "terraform_data" "check_slurm_nodeset" {
   lifecycle {
     precondition {
       condition = (
-        startswith(each.key, "worker_")
-        ? (
-          try(each.value.size >= 0 && floor(each.value.size) == each.value.size, false) &&
-          (
-            try(each.value.autoscaling.min_size, null) == null
-            ? true
-            : try(each.value.autoscaling.min_size >= 0 && floor(each.value.autoscaling.min_size) == each.value.autoscaling.min_size, false)
-          )
-        )
-        : (
-          try(each.value.size > 0 && floor(each.value.size) == each.value.size, false) ||
-          try(each.value.min_size > 0 && floor(each.value.min_size) == each.value.min_size, false)
-        )
+        try(each.value.size, 0) > 0 ||
+        try(each.value.min_size, 0) > 0
       )
-      error_message = "Node set ${each.key} must have whole-number size/min_size values. Worker node sets may use size = 0 and validate autoscaling.min_size when set; other node sets must have size or min_size greater than 0."
+      error_message = "Either size or min_size must be greater than zero in node set ${each.key}."
     }
 
     precondition {
@@ -1364,29 +1062,6 @@ variable "slurm_shared_memory_size_gibibytes" {
   description = "Shared memory size for Slurm controller and worker nodes in GiB."
   type        = number
   default     = 64
-
-  validation {
-    condition     = var.slurm_shared_memory_size_gibibytes > 0
-    error_message = "slurm_shared_memory_size_gibibytes must be greater than 0."
-  }
-}
-
-variable "slurm_topology_block_size" {
-  description = <<EOL
-    Block size for Slurm topology/block topology plugin in number of nodes.
-    This affects how Slurm groups nodes into blocks for scheduling purposes.
-    A smaller block size allows for more flexible scheduling but may increase overhead,
-    while a larger block size may improve scheduling efficiency but reduce flexibility.
-    The optimal value depends on the cluster size and workload characteristics.
-  EOL
-  type        = number
-  default     = 18
-  nullable    = true
-
-  validation {
-    condition     = try(var.slurm_topology_block_size > 0, true)
-    error_message = "slurm_topology_block_size must be greater than 0 if set."
-  }
 }
 
 # endregion Config
@@ -1405,76 +1080,10 @@ variable "public_o11y_enabled" {
   default     = true
 }
 
-variable "allow_o11y_region_migration" {
-  description = "Whether to update an existing o11y logs project when its region differs from var.region."
-  type        = bool
-  default     = false
-}
-
 variable "dcgm_job_mapping_enabled" {
   description = "Whether to enable HPC job mapping by installing a separate dcgm-exporter"
   type        = bool
   default     = true
-}
-
-variable "kube_state_metrics_max_scrape_size" {
-  description = "Maximum kube-state-metrics HTTP scrape size in bytes. Leave null to let the Slurm module raise it automatically for large clusters."
-  type        = number
-  default     = null
-  nullable    = true
-
-  validation {
-    condition     = var.kube_state_metrics_max_scrape_size == null || var.kube_state_metrics_max_scrape_size > 0
-    error_message = "kube_state_metrics_max_scrape_size must be greater than 0 when set."
-  }
-}
-
-variable "opentelemetry_batch" {
-  description = "OpenTelemetry batch processor overrides for logs, jail logs, and events collectors. Leave null to use chart defaults."
-  type = object({
-    timeout             = optional(string)
-    send_batch_size     = optional(number)
-    send_batch_max_size = optional(number)
-  })
-  default  = null
-  nullable = true
-
-  validation {
-    condition = (
-      var.opentelemetry_batch == null ||
-      var.opentelemetry_batch.timeout == null ||
-      trimspace(var.opentelemetry_batch.timeout) != ""
-    )
-    error_message = "opentelemetry_batch.timeout must be non-empty when set."
-  }
-
-  validation {
-    condition = (
-      var.opentelemetry_batch == null ||
-      var.opentelemetry_batch.send_batch_size == null ||
-      var.opentelemetry_batch.send_batch_size > 0
-    )
-    error_message = "opentelemetry_batch.send_batch_size must be greater than 0 when set."
-  }
-
-  validation {
-    condition = (
-      var.opentelemetry_batch == null ||
-      var.opentelemetry_batch.send_batch_max_size == null ||
-      var.opentelemetry_batch.send_batch_max_size > 0
-    )
-    error_message = "opentelemetry_batch.send_batch_max_size must be greater than 0 when set."
-  }
-
-  validation {
-    condition = (
-      var.opentelemetry_batch == null ||
-      var.opentelemetry_batch.send_batch_size == null ||
-      var.opentelemetry_batch.send_batch_max_size == null ||
-      var.opentelemetry_batch.send_batch_max_size >= var.opentelemetry_batch.send_batch_size
-    )
-    error_message = "opentelemetry_batch.send_batch_max_size must be greater than or equal to send_batch_size when both are set."
-  }
 }
 
 variable "soperator_notifier" {
@@ -1496,19 +1105,6 @@ variable "soperator_notifier" {
     )
     error_message = "Slack webhook URL must be provided if Soperator Notifier is enabled."
   }
-}
-
-variable "nccl_inspector_profiling" {
-  description = "Configuration of the NCCL Inspector profiling."
-  type = object({
-    enabled  = bool
-    dump_dir = optional(string)
-    verbose  = optional(bool)
-  })
-  default = {
-    enabled = false
-  }
-  nullable = false
 }
 
 # endregion Telemetry
@@ -1545,7 +1141,7 @@ variable "slurmdbd_config" {
 }
 
 variable "slurm_accounting_config" {
-  description = "Slurm accounting settings rendered into Soperator-generated slurm_base.conf.noedit, which is included by slurm.conf. See upstream Slurm slurm.conf documentation: https://slurm.schedmd.com/slurm.conf.html. Not all options are supported."
+  description = "Slurm.conf accounting configuration. See https://slurm.schedmd.com/slurm.conf.html. Not all options are supported."
   type        = map(any)
   default = {
     # accountingStorageTRES: "gres/gpu,license/iop1"
@@ -1641,10 +1237,10 @@ variable "maintenance_ignore_node_groups" {
 variable "active_checks_scope" {
   type        = string
   description = "Scope of active checks. Defines what active checks should be checked during cluster bootstrap."
-  default     = "prod_quick"
+  default     = ""
   validation {
     condition     = contains(["dev", "testing", "prod_quick", "prod_acceptance", "essential"], var.active_checks_scope)
-    error_message = "active_checks_scope must be one of: dev, testing, prod_quick, prod_acceptance, essential."
+    error_message = "active_checks_scope should be one of: dev, testing, prod_quick, prod_acceptance, essential."
   }
 }
 

@@ -3,7 +3,7 @@ terraform {
 
   required_providers {
     nebius = {
-      source  = "nebius/nebius"
+      source  = "terraform-provider.storage.eu-north1.nebius.cloud/nebius/nebius"
       version = ">= 0.5.196"
     }
 
@@ -38,9 +38,15 @@ provider "nebius" {
   timeout           = "10m"
   per_retry_timeout = "1m"
   retries           = 10
-  profile           = {}
+  profile           = { name = "demo" }
 }
 
+provider "units" {}
+
+provider "string-functions" {}
+
+# Using exec block (nebius CLI) instead of static iam_token so auth survives
+# long terraform applies (30+ min) without token expiration.
 locals {
   kubernetes_exec = {
     api_version = "client.authentication.k8s.io/v1beta1"
@@ -48,10 +54,6 @@ locals {
     args        = ["mk8s", "v1", "cluster", "get-token", "--format", "json"]
   }
 }
-
-provider "units" {}
-
-provider "string-functions" {}
 
 provider "kubernetes" {
   host                   = module.k8s.control_plane.public_endpoint
