@@ -162,7 +162,13 @@ slurm_nodeset_workers = [
       when_scaled  = "Delete"
     }
     max_pods                  = 32
-    node_local_jail_submounts = []
+    node_local_jail_submounts = [{
+      name            = "scratch"
+      mount_path      = "/scratch"
+      size_gibibytes  = 1024
+      disk_type       = "NETWORK_SSD"
+      filesystem_type = "ext4"
+    }]
     node_local_image_disk = {
       enabled = false
     }
