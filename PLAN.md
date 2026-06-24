@@ -8,6 +8,35 @@ Fine-tune a 2026 open-source MoE LLM for function calling on 16 H200 GPUs using 
 
 Stack: Megatron-SWIFT with Expert Parallelism, Qwen3.6-35B-A3B, Slurm via Soperator, vLLM for inference.
 
+## Implementation status (as-built, 2026-06-24)
+
+This section records what was actually built and how it deviates from the
+original design below. `CLAUDE.md` holds the authoritative operational detail.
+
+**Exercise 1 (training): DONE.** Full SFT of Qwen3.6-35B-A3B completed on 16×H200:
+State=COMPLETED, 51m33s, 426/426 steps, 3 epochs, **sustained GPU util 85–92%**
+(target >80%), loss 0.20→0.13, eval 0.196. HF-ready checkpoint at
+`/data/checkpoints/qwen3-fc-20260624-0025/v0-20260624-082630/checkpoint-426`.
+
+Deviations from the original plan that proved necessary:
+
+| Original assumption | What actually worked |
+|---|---|
+| Env via pip/uv or "Option A/B/C" | **Official ms-swift enroot image only** — ms-swift 4.x `[megatron]` is not on PyPI. Built `swift431-tl.sqsh` (image + tilelang). |
+| `pipeline_model_parallel_size = 2` | **PP=1, EP=8 → DP=16.** PP=2 across nodes idled GPUs (pipeline bubbles). EP is orthogonal to DP. |
+| "Alternative: DP = 16/8 = 2" | DP is actually **16** (= world/(TP·PP)); EP does not divide DP for the batch constraint. |
+| `micro_batch=1, global_batch=16` | **micro_batch=2, global_batch=32** → util 73%→85%. global_batch must be divisible by micro_batch·16. |
+| `sequence_parallel=true` lever | No-op at TP=1 (Megatron auto-disables it). Not a util lever here. |
+| Checkpoint export (2-node, PP=2) | **No export** — `--save_safetensors=true` writes a full HF checkpoint per save. |
+| HuggingFace download | **ModelScope** `snapshot_download` (no gate); path double-nests. |
+| `/shared/...` paths | Shared FS mounts at **`/data/`** on this cluster. |
+| (not anticipated) | **Qwen3.6 is a hybrid model with Gated DeltaNet layers** whose backward kernel is wrong on Hopper/Triton≥3.4 → requires the **tilelang** backend (pin 0.1.9 to the image's apache-tvm-ffi 0.1.9). |
+
+Everything below is the original design; the rationale (why MoE, why full SFT,
+dataset handling, tool-call format) still holds. The code blocks for env setup,
+parallelism, export, and storage paths are superseded by the table above and by
+the current scripts in `training/`.
+
 ## Model
 
 Primary: **Qwen/Qwen3.6-35B-A3B** (April 2026, 35B total / 3B active, 256 experts, Apache 2.0). Already instruction-tuned (no separate base variant published).
@@ -65,20 +94,30 @@ Key dependencies:
 - CUDA 12.8+
 - transformers >= 5.5.0 (required for Qwen3.6 tokenizer)
 
-Environment setup options:
-- **Option A (recommended)**: Use ModelScope Docker image via enroot: `srun --container-image="modelscope-registry/modelscope:ubuntu22.04-cuda12.8.1-py311-torch2.10.0-vllm0.17.1-modelscope1.34.0-swift4.0.3" ...`
-- **Option B**: Install into shared filesystem pip venv accessible from all nodes.
-- If neither works, fall back to NGC PyTorch base image + pip install ms-swift.
+**Environment (as-built):** the **official ms-swift enroot image is the only
+viable path** — ms-swift 4.x with the `[megatron]` extra is not published to PyPI,
+so pip/uv installs into an NGC base image fail (endless backtracking or an
+incompatible torch). Option B (shared-FS venv) was tried and abandoned for the
+same reason. What works:
+1. `import_image.slurm` — `enroot import` the official image
+   `modelscope-registry.us-west-1.cr.aliyuncs.com/modelscope-repo/modelscope:ubuntu22.04-cuda13.0.3-py312-torch2.11.0-vllm0.23.0-modelscope1.37.1-swift4.3.1`
+   once to a shared `.sqsh` (so both nodes reuse it). It ships torch 2.11 + TE 2.16
+   + flash-attn 2.8.3 + megatron-core 0.17.1 + mcore-bridge 1.5.0 + transformers 5.12.1.
+2. `build_image_tl.slurm` — derive `swift431-tl.sqsh` = image + `tilelang==0.1.9`
+   (Qwen3.6 Gated DeltaNet needs it on Hopper; pin to the image's apache-tvm-ffi 0.1.9).
+3. `train.slurm` runs `srun --container-image=/data/images/swift431-tl.sqsh ...`.
 
-Parallelism config for 2 nodes x 8 GPUs:
-- `expert_model_parallel_size = 8` (experts split across 8 GPUs within a node)
-- `pipeline_model_parallel_size = 2` (pipeline across 2 nodes)
-- Data parallelism is computed automatically: 16 / (EP * PP) = 1
+**Parallelism (as-built):** for 2 nodes × 8 GPUs:
+- `expert_model_parallel_size = 8` (experts sharded across 8 ranks)
+- `pipeline_model_parallel_size = 1`, `tensor_model_parallel_size = 1`
+- → `data_parallel_size = world/(TP·PP) = 16`. **EP is orthogonal to DP** — it
+  shards experts *within* the DP dimension (DP/EP = 2 expert-replica groups).
+- `micro_batch_size = 2`, `global_batch_size = 32` (must be divisible by micro·16).
 
-Alternative parallelism (if PP causes issues):
-- `expert_model_parallel_size = 8`
-- `pipeline_model_parallel_size = 1`
-- DP = 16 / 8 = 2 (data parallel across 2 nodes)
+> The original plan used PP=2 (pipeline across nodes). That idled GPUs with
+> cross-node pipeline bubbles (alternating 0%/100%, ≤73% util). PP=1 keeps both
+> nodes fully busy (only an all-reduce + MoE all-to-all per step) → 85% util.
+> Note the original "alternative DP = 16/8 = 2" was a miscount: DP is 16.
 
 ## Dataset
 
@@ -171,19 +210,26 @@ hypervariance/function-calling-sharegpt (HuggingFace, auto-cached)
 
 Nebius dashboards show DCGM_FI_DEV_GPU_UTIL ("percentage of time a GPU spends executing tasks"). This is the standard nvidia-smi GPU-Util metric, not SM occupancy or MFU.
 
-Target: >80% on all 16 GPUs during steady-state training.
+Target: >80% on all 16 GPUs during steady-state training. **Achieved: 85–92%**
+(measured live via `srun --jobid=N --overlap nvidia-smi`, confirmed on the Nebius
+DCGM dashboard). Measure only after warmup — the first iteration JIT-compiles
+TransformerEngine + tilelang kernels (~5 min of choppy util).
 
-Levers (in priority order):
-1. Megatron-SWIFT with EP (full SFT, not LoRA) -- eliminates the 10-20% utilization problem of naive MoE training
-2. `--packing true` -- critical for short function-calling examples
-3. `--max_length 8192` -- longer packed sequences = more compute per batch
-4. `--moe_grouped_gemm true` -- optimized batched matrix multiply for experts
-5. `--moe_permute_fusion true` -- fused token permutation kernels
-6. `--moe_shared_expert_overlap true` -- overlaps shared expert computation with communication
-7. `--sequence_parallel true` -- distributes sequence dimension across TP ranks
-8. `--recompute_granularity full` -- activation recomputation trades memory for compute
-9. Increase `--global_batch_size` if utilization is still low
-10. Increase `--dataloader_num_workers` to prevent data loading bottleneck
+Levers, in the order that actually mattered:
+1. **PP=1 (not PP=2)** — the single biggest lever. PP across nodes idled GPUs.
+2. **`micro_batch_size=2` (with `global_batch_size=32`)** — took util 73%→85% by
+   giving each GPU bigger GEMMs per step, amortizing the every-step all-reduce +
+   MoE all-to-all. Next lever if more is needed: micro_batch=4/global_batch=64.
+3. Megatron-SWIFT with EP, full SFT (not LoRA) — avoids naive-MoE's 10-20% util.
+4. `--packing true` — critical for short function-calling examples.
+5. `--max_length 8192` — longer packed sequences = more compute per batch.
+6. `--moe_grouped_gemm true`, `--moe_permute_fusion true`,
+   `--moe_shared_expert_overlap true` — fused/overlapped MoE kernels.
+7. `--recompute_granularity full` — recompute activations (memory↔compute).
+8. `--dataloader_num_workers 8` — avoid data-loading stalls.
+
+Not a lever here: `--sequence_parallel true` — it is a no-op at TP=1 (Megatron
+auto-disables it; SP only helps with tensor parallelism).
 
 Pre-flight: run built-in NCCL all-reduce test (see Infrastructure section).
 
@@ -291,18 +337,14 @@ Three levels:
 
 ### Model pre-download (run before training)
 
+As-built: download from **ModelScope** (no auth gate), not HuggingFace, inside the
+container, into `/data/models`. See `training/predownload.slurm`. Sketch:
 ```bash
-#!/bin/bash
-#SBATCH --job-name=predownload
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --time=01:00:00
-#SBATCH --output=/shared/logs/%x-%j.out
-
-# Must match HF_HOME in run_megatron.sh exactly — mismatch causes 70GB re-download during training
-export HF_HOME=/shared/.cache/huggingface
-export MODELSCOPE_CACHE=/shared/.cache
-huggingface-cli download Qwen/Qwen3.6-35B-A3B
+#SBATCH --nodes=1 --ntasks-per-node=1 --output=/data/logs/predownload-%j.out
+srun --container-image="nvcr.io/nvidia/pytorch:25.03-py3" --container-mounts="/data:/data" \
+  python -c 'from modelscope import snapshot_download;
+             snapshot_download("Qwen/Qwen3.6-35B-A3B", cache_dir="/data/models/Qwen3.6-35B-A3B")'
+# Result is double-nested: /data/models/Qwen3.6-35B-A3B/Qwen/Qwen3.6-35B-A3B
 ```
 
 ### Slurm training job
@@ -398,7 +440,14 @@ NNODES=... megatron sft \
 
 ### Checkpoint export
 
-Convert Megatron checkpoint to HuggingFace format for vLLM. **Export parallelism must match training parallelism** (EP=8, PP=2). Uses the same sbatch + separate script pattern as training to avoid shell quoting issues:
+> **As-built: NOT NEEDED.** Training ran with `--save_safetensors true`, which
+> writes a complete HuggingFace checkpoint (config.json + model.safetensors.index.json
+> + 16 safetensors shards + tokenizer) directly into each `checkpoint-N` dir. We
+> verified `checkpoint-426` is a valid HF checkpoint — point vLLM straight at it.
+> The Megatron→HF export job below is kept only as a reference for the case where
+> `save_safetensors` is off; it is not part of the working pipeline.
+
+Convert Megatron checkpoint to HuggingFace format for vLLM. **Export parallelism must match training parallelism**. Uses the same sbatch + separate script pattern as training to avoid shell quoting issues:
 
 **export_checkpoint.slurm:**
 ```bash
@@ -537,11 +586,13 @@ nebius-demo/
   training/
     prepare_dataset.py                 # download HF dataset, parse inline, apply_chat_template → train/eval JSONL
     validate_dataset.py                # count, validate JSON, token stats, sample review
-    train.slurm                        # Slurm job script (sets MASTER_ADDR, calls srun)
-    run_megatron.sh                    # Megatron-SWIFT training command (executed by srun per node)
-    predownload.slurm                  # pre-download model weights to shared cache (separate from training)
-    export_checkpoint.slurm            # Megatron → HuggingFace conversion (2-node Slurm job)
-    run_export.sh                      # megatron export command (executed by srun per node)
+    predownload.slurm                  # ModelScope download of the model to /data/models (separate from training)
+    import_image.slurm                 # enroot import official ms-swift image → /data/images/swift431.sqsh
+    build_image_tl.slurm               # derive swift431-tl.sqsh = base image + tilelang 0.1.9
+    train.slurm                        # Slurm job (sets MASTER_ADDR/NNODES, monitoring, calls srun w/ container)
+    run_megatron.sh                    # `megatron sft` command (executed by srun per node; sets NODE_RANK)
+    watch_gpu.sh                       # live GPU util of a running job (srun --overlap nvidia-smi)
+    # (no export_checkpoint.slurm — save_safetensors makes the checkpoint HF-ready)
 
   inference/
     serve_base.sh                      # vLLM base model (TP=2, port 8000)
@@ -578,6 +629,14 @@ nebius-demo/
 | Storage overflow from checkpoints | N/A | N/A | Fixed: save_steps=500, save_total_limit=2 |
 
 Critical fallback: if MoE + Megatron-SWIFT is completely blocked, switch to **Qwen2.5-72B-Instruct + TRL + DeepSpeed ZeRO-3 + LoRA**. This is the proven dense path that guarantees >80% GPU utilization with standard tooling. Loses the "2026 model" angle but guarantees a passing submission.
+
+**What actually happened (outcomes):** the two "Medium" risks materialized and were
+resolved without falling back. (1) *Megatron-SWIFT install* — pip/uv was a dead end
+(4.x `[megatron]` not on PyPI); resolved by using the official enroot image. (2) A
+risk not in this table — *Qwen3.6 Gated DeltaNet incompatible with Hopper/Triton≥3.4*
+— surfaced as a first-backward crash and was resolved by baking `tilelang 0.1.9`
+into the image. *GPU util <80%* also occurred (PP=2 and micro_batch=1) and was fixed
+by PP=1 + micro_batch=2. The dense fallback was never needed.
 
 ## Timeline
 
