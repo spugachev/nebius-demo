@@ -10,15 +10,19 @@
 
 set -e
 
-# Build a derived enroot image with tilelang installed PROPERLY (with all its
-# declared dependencies) on top of the official ms-swift image. This is the
-# robust alternative to runtime --no-deps/symlink/LD_PRELOAD shims:
-#   - pip resolves tilelang's real deps: apache-tvm-ffi (provides libtvm_ffi.so),
-#     z3-solver<4.15.5 (provides the exact libz3.so.4.15 TVM dlopens), etc.
-#   - the image's existing torch 2.11 satisfies tilelang's `torch` requirement,
-#     so nothing heavy is reinstalled and nothing conflicts.
-# tilelang is needed for Qwen3.6's Gated DeltaNet backward on Hopper (Triton>=3.4
-# fla kernel is numerically wrong; fla auto-uses the tilelang backend).
+# Build a derived enroot image with tilelang installed PROPERLY on top of the
+# official ms-swift image. tilelang is needed for Qwen3.6's Gated DeltaNet
+# backward on Hopper (the Triton>=3.4 fla kernel is numerically wrong; fla
+# auto-uses the tilelang backend).
+#
+# Pin tilelang==0.1.9 to MATCH the apache-tvm-ffi 0.1.9 the image already ships
+# (required by vllm/flashinfer/xgrammar/quack-kernels). tilelang 0.1.11 would
+# force apache-tvm-ffi>=0.1.10, which (a) breaks the vllm stack and (b) makes
+# tilelang's bundled TVM double-register FFI types against the image's tvm_ffi
+# ("__ffi_repr__ already registered"). With 0.1.9 everything reuses the image's
+# single libtvm_ffi.so — no conflict, nothing else upgraded. All of tilelang's
+# other deps (torch-c-dlpack-ext, z3-solver<4.15.5, ml-dtypes) are already in
+# the image, so this is a clean, minimal, version-matched install.
 
 SRC=/data/images/swift431.sqsh
 DST=/data/images/swift431-tl.sqsh
@@ -36,10 +40,13 @@ enroot create --name "$NAME" "$SRC"
 
 enroot start --root --rw --mount /data:/data "$NAME" bash -c '
 set -e
+# Full dependency resolution, but constrain apache-tvm-ffi==0.1.9 so pip keeps
+# the image version (shared with vllm/flashinfer) and selects the matching
+# tilelang. All other tilelang deps are already present in the image.
 pip install --no-cache-dir \
     --trusted-host pypi.org --trusted-host files.pythonhosted.org \
-    tilelang
-echo "--- versions ---"
+    "tilelang==0.1.9" "apache-tvm-ffi==0.1.9"
+echo "--- versions (apache-tvm-ffi must remain 0.1.9) ---"
 pip show tilelang apache-tvm-ffi z3-solver 2>/dev/null | grep -E "^(Name|Version):"
 echo "--- import check ---"
 python -c "import tilelang, tilelang.language; print(\"tilelang\", tilelang.__version__, \"import OK\")"
