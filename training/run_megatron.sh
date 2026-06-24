@@ -45,7 +45,9 @@ nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader | head -1
 #   different data, only an overlappable gradient all-reduce between them -> no
 #   cross-node pipeline bubbles, sustained >80% GPU utilization. (PLAN.md documents
 #   this as the alternative when PP across nodes idles GPUs — observed exactly that.)
-#   micro_batch=1, global_batch=16, DP=2 -> grad-accum 8 per replica.
+#   micro_batch=2, global_batch=16, DP=2 -> grad-accum 4 per replica. micro_batch=2
+#   (vs 1) gives each GPU larger GEMMs per micro-step, amortizing the DP all-reduce
+#   + MoE all-to-all + GDN-kernel sync overhead -> higher sustained util (>80%).
 #   recompute_granularity full -> fits activations; MoE fusions -> max throughput.
 #   save_safetensors true -> checkpoint is directly HF/vLLM-loadable (no separate export step).
 #   lr 5e-6 (not the example's 1e-5): model is already instruction-tuned (project decision).
@@ -63,7 +65,7 @@ megatron sft \
     --moe_shared_expert_overlap      true \
     --moe_aux_loss_coeff             1e-3 \
     \
-    --micro_batch_size               1 \
+    --micro_batch_size               2 \
     --global_batch_size              16 \
     --packing                        true \
     --max_length                     8192 \
