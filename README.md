@@ -42,12 +42,13 @@ tuned with vLLM.
 ```
 terraform/   Soperator cluster (forked nebius-solution-library recipe)
 training/    dataset prep (local) + Slurm jobs (predownload, image build, train)
-inference/   vLLM serving scripts (serve_base.sh, serve_tuned.sh, smoke_test.slurm)
+inference/   vLLM serving (serve_base.sh, serve_tuned.sh, smoke_test.slurm, ask.py)
 eval/        prompts.jsonl, mock_tools.py, compare.py, run_comparison.slurm, results/
 docs/        architecture.md, monitoring.md, troubleshooting.md, demo_script.md
 ```
 
-See `CLAUDE.md` → "File layout" for a per-file description.
+See `CLAUDE.md` → "File layout" for a per-file description, and `docs/` for the
+architecture diagram, monitoring guide, troubleshooting log, and demo-day script.
 
 ## Reproduce
 

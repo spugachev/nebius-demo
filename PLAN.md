@@ -18,6 +18,15 @@ State=COMPLETED, 51m33s, 426/426 steps, 3 epochs, **sustained GPU util 85–92%*
 (target >80%), loss 0.20→0.13, eval 0.196. HF-ready checkpoint at
 `/data/checkpoints/qwen3-fc-20260624-0025/v0-20260624-082630/checkpoint-426`.
 
+**Exercise 2 (inference): DONE.** vLLM 0.23.0 (in the image) serves Qwen3.6 GDN and
+the `qwen3_coder` parser; base vs tuned over 23 prompts (`eval/results/comparison.md`):
+tuned wins on every metric — function-name accuracy 82→**100%**, argument exact-match
+76→**94%**, appropriate call/no-call 87→**96%**, executable 65→**78%** (trade-off:
+clarify-rate dipped 100→67%). **Docs** (architecture/monitoring/troubleshooting/demo)
+are in `docs/`. The serving sections below are superseded by the actual scripts in
+`inference/` + `eval/` (vLLM has no `--chat-template-kwargs` CLI flag — thinking is
+disabled per request).
+
 Deviations from the original plan that proved necessary:
 
 | Original assumption | What actually worked |

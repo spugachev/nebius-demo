@@ -42,9 +42,11 @@ sbatch /data/code/training/import_image.slurm                    # enroot-import
 sbatch /data/code/training/build_image_tl.slurm                  # derive swift431-tl.sqsh = base image + tilelang 0.1.9
 sbatch /data/code/training/train.slurm                           # launch 2-node training (uses swift431-tl.sqsh)
 # NO export step: --save_safetensors=true writes HF safetensors into each checkpoint-N dir → point vLLM straight at it.
-bash /data/code/inference/serve_base.sh                          # vLLM base model (TODO)
-bash /data/code/inference/serve_tuned.sh                         # vLLM tuned model, --model .../checkpoint-426 (TODO)
-python /data/code/eval/compare.py                                # run comparison (TODO)
+sbatch /data/code/eval/run_comparison.slurm                      # base :8000 + tuned :8001 (TP=2), then compare.py → report
+# interactive serving + hand queries:
+#   srun ... --container-image=/data/images/swift431-tl.sqsh --pty bash   # shell into container on a GPU node
+#   bash /data/code/inference/serve_base.sh   # / serve_tuned.sh  (vLLM, TP=2)
+#   python3 /data/ask.py <port> <base|tuned> "<question>"                 # one tool-call query
 ```
 
 Monitoring a running job's GPU utilization (the dcgmi sidecar needs nv-hostengine and only sees one node; this is the robust way):
@@ -120,9 +122,17 @@ training/
   train.slurm            # cluster: 2-node sbatch; sets MASTER_ADDR/NNODES, dcgmi+nvidia-smi monitoring, srun runner
   run_megatron.sh        # runs inside container per node; sets NODE_RANK, env, calls `megatron sft`
   watch_gpu.sh           # convenience: live GPU util of a running job via srun --overlap nvidia-smi
-inference/         # vLLM serving scripts (TODO: serve_base.sh, serve_tuned.sh)
-eval/              # test prompts, mock tools, comparison script (TODO: prompts.jsonl, compare.py)
-docs/              # architecture, monitoring, troubleshooting, demo script (TODO)
+inference/
+  serve_base.sh / serve_tuned.sh   # vLLM serve (TP=2, qwen3_coder parser); tuned = checkpoint-426
+  smoke_test.slurm                 # de-risk: vLLM loads Qwen3.6 GDN + emits a tool call
+  ask.py                           # CLI: python3 ask.py <port> <model> "<q>" (also uploaded to /data/ask.py)
+eval/
+  prompts.jsonl          # 23 hand-written function-calling test cases + expected calls
+  mock_tools.py          # canned tool impls for the executable-success metric
+  compare.py             # stdlib harness: query both endpoints, score, write report.md+json
+  run_comparison.slurm   # one node: serve base+tuned, wait, run compare.py
+  results/               # committed comparison.md + comparison.json
+docs/                    # architecture.md, monitoring.md, troubleshooting.md, demo_script.md
 ```
 
 ## Nebius / Soperator specifics
@@ -137,15 +147,20 @@ docs/              # architecture, monitoring, troubleshooting, demo script (TOD
 - Tenant: `csa-hiring-sandboxK` (shared, use unique resource names)
 - Upload to cluster: `scp` to login node, files go to `/shared/` on jail FS
 
-## Verified training run (job 65, 2026-06-24)
+## Verified results (2026-06-24) — both exercises DONE
 
-Completed full SFT successfully: State=COMPLETED, exit 0, **51m33s**, 426/426 steps, 3 epochs, **sustained GPU util 85–92%** on 16×H200. Loss 0.20→0.13, eval 0.196. Checkpoint (HF-ready, 66GB): `/data/checkpoints/qwen3-fc-20260624-0025/v0-20260624-082630/checkpoint-426` (best-eval: `checkpoint-200`). Base model for comparison: `/data/models/Qwen3.6-35B-A3B/Qwen/Qwen3.6-35B-A3B`. Dataset packed to 4558 train + 191 val sequences (~8131 tokens avg). Done: env image + correct megatron args + PP=1/EP=8 + micro_batch=2 + tilelang. TODO: vLLM serve base vs tuned + compare + docs.
+**Exercise 1 — training (job 65):** full SFT, State=COMPLETED exit 0, **51m33s**, 426/426 steps, 3 epochs, **sustained GPU util 85–92%** on 16×H200. Loss 0.20→0.13, eval 0.196. Checkpoint (HF-ready, 66GB): `/data/checkpoints/qwen3-fc-20260624-0025/v0-20260624-082630/checkpoint-426` (best-eval: `checkpoint-200`). Base model: `/data/models/Qwen3.6-35B-A3B/Qwen/Qwen3.6-35B-A3B`. Dataset packed to 4558 train + 191 val (~8131 tokens avg).
+
+**Exercise 2 — inference (job 84):** vLLM base vs tuned over 23 prompts (`eval/results/comparison.md`). Tuned wins on every metric: appropriate call/no-call 87→**95.7%**, function-name accuracy 82→**100%**, argument exact-match 76→**94%**, executable 65→**78%**. Honest trade-off: clarify-rate dipped 100→67% (tuned more eager to call — candidate for more negative/clarify data). Docs (architecture/monitoring/troubleshooting/demo) in `docs/`.
 
 ## Gotchas
 
 - **Qwen3.6 has Gated DeltaNet (linear-attention) layers → needs `tilelang` on Hopper.** Training crashes on the first backward: `RuntimeError: Triton >= 3.4.0 on Hopper GPUs produces incorrect results for gated chunk_bwd_dqkwg ... Please install tilelang`. The image's Triton is 3.6, and fla auto-uses the tilelang backend when importable. Fix: pin **`tilelang==0.1.9`** to match the image's `apache-tvm-ffi 0.1.9` (shared with vllm/flashinfer/xgrammar). tilelang 0.1.11 forces apache-tvm-ffi>=0.1.10 → breaks vllm AND double-registers FFI (`__ffi_repr__ already registered`). `build_image_tl.slurm` bakes it in (`pip install "tilelang==0.1.9" "apache-tvm-ffi==0.1.9"`). The fallback model (Qwen3-30B-A3B) has no GDN → no tilelang.
 - **GPU util: `dcgmi dmon` needs `nv-hostengine` running and only sees the sbatch node.** Robust measurement of a running job, both nodes: `srun --jobid=N --overlap --ntasks-per-node=1 --nodes=2 nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader`. Judge util only AFTER warmup — the first iteration JIT-compiles TE + tilelang kernels (counter stuck at 0/N with choppy util for ~5 min is normal).
 - **Never patch with `--no-deps`/symlinks/`LD_PRELOAD`** (user directive). Install packages properly (let the resolver pull declared deps; constrain shared versions) and bake into the image. `--no-deps` once hid a missing `libtvm_ffi.so` and snowballed.
+- **vLLM 0.23.0 serves Qwen3.6 GDN fine** (smoke-tested) and the `qwen3_coder` parser emits structured tool_calls. Model load is slow (~11 min: MoE + GDN + kernel compile).
+- **vLLM has NO `--chat-template-kwargs` CLI flag** — passing it makes the server exit at arg-parse. Disable thinking **per request** instead: `"chat_template_kwargs": {"enable_thinking": false}` in the chat-completion body (base model otherwise emits a `<think>…</think>` preamble; tuned model trained with thinking off doesn't).
+- **Tuned checkpoint is directly vLLM-loadable** (HF safetensors). For comparison run both on one node (base GPU0-1:8000, tuned GPU2-3:8001) via `run_comparison.slurm`; for hand queries use `/data/ask.py`.
 - Set `public_o11y_enabled = false` in terraform.tfvars (known Terraform recipe bug)
 - Install `yq` before running terraform apply
 - Nebius filesystems can't be shrunk in-place: to reduce size, `nebius compute filesystem delete` + `terraform state rm` + re-apply.
