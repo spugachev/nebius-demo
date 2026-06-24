@@ -123,40 +123,25 @@ CUDA_VISIBLE_DEVICES=2,3 vllm serve $TUNED --served-model-name tuned $OPTS --por
 until curl -sf localhost:8000/health && curl -sf localhost:8001/health; do sleep 10; done; echo READY
 ```
 
-**3. Write a tiny helper** (Python handles JSON/quoting cleanly — far more
-paste-safe than a multi-line bash function; the quoted `'PY'` prevents any shell
-expansion). Disables thinking per request, like training:
-```bash
-cat > /data/ask.py <<'PY'
-import sys, json, urllib.request
-port, model, q = sys.argv[1], sys.argv[2], sys.argv[3]
-tools = [
-  {"type":"function","function":{"name":"get_weather","description":"Get current weather for a city",
-    "parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}},
-  {"type":"function","function":{"name":"create_ticket","description":"Create a support ticket",
-    "parameters":{"type":"object","properties":{"customer":{"type":"string"},"category":{"type":"string"},
-    "priority":{"type":"string"}},"required":["customer","category"]}}},
-]
-payload = {"model": model, "messages":[{"role":"user","content":q}], "tools":tools,
-           "tool_choice":"auto", "temperature":0, "chat_template_kwargs":{"enable_thinking":False}}
-req = urllib.request.Request(f"http://localhost:{port}/v1/chat/completions",
-      data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"})
-m = json.load(urllib.request.urlopen(req))["choices"][0]["message"]
-print("content:   ", m.get("content"))
-print("tool_calls:", json.dumps(m.get("tool_calls"), ensure_ascii=False, indent=2))
-PY
-```
-
-**4. Ask both models:**
+**3. Ask both models** with the `inference/ask.py` helper (Python handles
+JSON/quoting cleanly — far more paste-safe than a bash function). It ships in the
+repo and is already uploaded to `/data/ask.py`; it disables thinking per request,
+like training:
 ```bash
 Q="Open a high priority support ticket for Acme Corp about a payment_failure"
 echo "── BASE ──";  python3 /data/ask.py 8000 base  "$Q"
 echo "── TUNED ──"; python3 /data/ask.py 8001 tuned "$Q"
 ```
+```
+content:    None
+tool_calls: [{"type":"function","function":{"name":"create_ticket",
+              "arguments":"{\"customer\": \"Acme Corp\", \"category\": \"payment_failure\", \"priority\": \"high\"}"}}]
+```
 
-Edit `$Q` for your own cases and the `tools` list in `/data/ask.py` for your own
-functions. For one model only, use `--gpus-per-node=2` and start a single
-`vllm serve … --port 8000`. `exit` frees the GPUs (servers stop with the allocation).
+Edit `$Q` for your own cases and the `tools` list in `ask.py` for your own
+functions (re-`scp` after editing). For one model only, use `--gpus-per-node=2`
+and start a single `vllm serve … --port 8000`. `exit` frees the GPUs (servers stop
+with the allocation).
 
 ## Key engineering notes
 
