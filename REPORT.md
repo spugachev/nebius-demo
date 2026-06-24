@@ -15,9 +15,9 @@ multi-node training (Exercise 1) and base-vs-tuned inference comparison (Exercis
 
 ## Summary
 
-This project delivers an end-to-end, multi-node LLM fine-tuning workflow on
+This is a multi-node LLM fine-tuning workflow on
 [Nebius Soperator](https://github.com/nebius/soperator) (Slurm on Managed
-Kubernetes), built to show a PoC team how they would train and serve a
+Kubernetes), built to show a PoC team how to train and serve a
 function-calling model on reserved GPU capacity. We fine-tuned
 [**Qwen3.6-35B-A3B**](https://modelscope.cn/models/Qwen/Qwen3.6-35B-A3B) (a 2026
 open-weight Mixture-of-Experts (MoE) model: 256 experts, ~3B active of 35B, with hybrid
@@ -54,18 +54,16 @@ to the implementer; this report documents and justifies each of those choices.
 
 The cluster is provisioned with Terraform, forked from the official
 [`nebius-solution-library`](https://github.com/nebius/soperator) Soperator recipe.
-**Soperator** runs Slurm on top of Managed Kubernetes, which is the deliberate
-choice here: it gives the customer's ML engineers a familiar `sbatch`/`squeue`/`sacct`
-workflow without requiring Kubernetes expertise, while Nebius manages the control
-plane. The deployment is **2 worker nodes × 8 H200 (141 GB each)** on the
+**Soperator** runs Slurm on top of Managed Kubernetes, so the team gets a familiar
+`sbatch`/`squeue`/`sacct` workflow without needing Kubernetes expertise while Nebius
+manages the control plane. The deployment is **2 worker nodes × 8 H200 (141 GB each)** on the
 `eu-north2-a` InfiniBand fabric, with a single **shared filesystem mounted at
 `/data`** on every node holding code, the model, datasets, the container image,
-checkpoints, and logs. A shared filesystem (rather than per-node local disk) is the
-right choice for multi-node training: every rank reads the same model weights and
-dataset and writes to one checkpoint path, the container image is imported once and
-reused by both nodes, and nothing has to be copied between hosts. The 1 TB SSD
-allocation comfortably holds the model (~67 GB), the image (~18 GB), and rolling
-checkpoints (~66 GB each, capped at two).
+checkpoints, and logs. We keep everything on one shared filesystem rather than
+per-node local disk: every rank reads the same model weights and dataset and writes to
+one checkpoint path, and the container image is imported once and reused by both nodes
+without copying. The 1 TB SSD allocation holds the model (~67 GB), the image (~18 GB),
+and rolling checkpoints (~66 GB each, capped at two).
 
 The container runtime is **[enroot](https://github.com/NVIDIA/enroot) via the Pyxis
 SPANK plugin** (not Docker): jobs run with `srun --container-image=...`, and a single
@@ -83,23 +81,21 @@ stack** that interleaves full attention with **Gated DeltaNet** (linear-attentio
 layers. It ships already instruction-tuned, so we do task-specialization rather than
 base alignment.
 
-We deliberately chose the **harder** path. A modern dense alternative is essentially
-unavailable: no dense open-weight model above ~32B was released in 2026 (the field
-has moved to MoE), so going dense would mean demonstrating a year-old model (the
-newest comparable dense option, Qwen2.5-72B, is from 2024). And MoE is genuinely
-**hard to train efficiently**: sparse top-k routing, expert load-balancing, and the
-all-to-all expert communication are exactly what makes naive MoE training stall at
-10-20% GPU utilization. That difficulty is the point: most of the engineering in this
-project went into keeping a sparse 35B MoE above 80% utilization across two nodes,
-which is precisely the capability a customer reserving large GPU capacity needs to
-see proven on a current-generation architecture rather than a legacy dense one.
+We chose MoE over a dense model partly out of necessity: no dense open-weight model
+above ~32B was released in 2026 (the field has moved to MoE), so a dense choice would
+have meant a year-old model (the newest comparable option, Qwen2.5-72B, is from 2024).
+MoE is also harder to train efficiently. Sparse top-k routing, expert load-balancing,
+and all-to-all expert communication are what make naive MoE training stall at 10-20%
+utilization, so keeping a sparse 35B MoE above 80% across two nodes is where most of
+the work went. That is the capability a customer reserving large GPU capacity needs to
+see on a current architecture rather than a legacy dense one.
 
 **Framework:** [Megatron-SWIFT](https://github.com/modelscope/ms-swift) (ms-swift on
 a Megatron-Core backend) with **full supervised fine-tuning and Expert Parallelism**.
-This is the path the Qwen team recommends for MoE: it delivers roughly an order of
-magnitude more throughput than HuggingFace/DeepSpeed for MoE and, crucially, keeps
-GPU utilization high; naive MoE training (e.g. DeepSpeed ZeRO-3 + LoRA) is reported
-to stall at 10-20% and has documented incompatibilities. We use **full SFT rather
+The Qwen team recommends it for MoE: it is roughly 10x faster than HuggingFace and
+DeepSpeed for MoE training and keeps GPU utilization high, where naive MoE training
+(e.g. DeepSpeed ZeRO-3 + LoRA) is reported to stall at 10-20% and has documented
+incompatibilities. We use **full SFT rather
 than LoRA** because LoRA on MoE with Expert Parallelism at this scale is undocumented
 and risks falling below the 80% utilization requirement; full SFT is the proven path
 to >80%.
@@ -121,7 +117,7 @@ the JSON tool schemas, converts `<functioncall>` tags into structured `tool_call
 handles the double-stringified arguments, maps roles, and drops unparseable examples
 (~75k survive). Every example is then rendered through
 `tokenizer.apply_chat_template(..., enable_thinking=False)` so the training signal
-exactly matches what the model will see at inference, and split 96/4 into train/eval
+matches what the model sees at inference, and split 96/4 into train/eval
 (a validation pass checks counts, JSON validity, and token statistics). With
 **sequence packing** to 8192 tokens, the ~75k short conversations compact into
 **4,558 train + 191 eval packed sequences** (~8,131 tokens each). `enable_thinking=False`
@@ -165,7 +161,7 @@ checkpoint
 
 The assignment's key metric is **DCGM_FI_DEV_GPU_UTIL** (from NVIDIA's Data Center GPU
 Manager): the fraction of time the GPU executes kernels. We **sustained 85-92% across all 16 H200 GPUs** (mean ≈ 85%) during
-steady-state training, comfortably above the >80% target. We measured utilization two
+steady-state training, above the >80% target. We measured utilization two
 ways that agree: live from the cluster with an overlapping step on the job's own
 allocation (`srun --jobid=N --overlap ... nvidia-smi`), and on the **Nebius console dashboard** (GPU-metrics view). A representative single sample of all 16 GPUs
 (8 per node) during steady-state training illustrates the balance:
@@ -185,16 +181,16 @@ all-to-all communication, which lifted utilization from 73% to 85%.
 ## Inference and Evaluation
 
 Both models are served with [**vLLM**](https://github.com/vllm-project/vllm) 0.23.0
-(from the same image) at tensor-parallel size 2: 35B in bf16 (~70 GB) fits
-comfortably on 2 H200s, and TP=8 would only add communication overhead. A smoke test
-first de-risked that vLLM loads the hybrid Gated DeltaNet architecture and emits a
-parsed tool call via `--tool-call-parser qwen3_coder`. For an apples-to-apples
-comparison both models run with thinking disabled (`chat_template_kwargs={"enable_thinking":
-false}` per request), matching training.
+(from the same image) at tensor-parallel size 2: 35B in bf16 (~70 GB) fits on 2 H200s,
+and TP=8 would only add communication overhead. A smoke test first confirmed that vLLM
+loads the hybrid Gated DeltaNet architecture and emits a parsed tool call via
+`--tool-call-parser qwen3_coder`. Both models run with thinking disabled
+(`chat_template_kwargs={"enable_thinking": false}` per request) to match training, so
+the two are compared under identical settings.
 
 A comparison job stands up base (`:8000`) and tuned (`:8001`) on one node and runs a
-dependency-light harness that sends the same 23 hand-written prompts to each model at
-temperature 0 (so the comparison is deterministic and reproducible), across six
+harness that sends the same 23 hand-written prompts to each model at temperature 0
+(so the comparison is deterministic and reproducible), across six
 categories (single-tool, multi-argument, should-clarify, no-tool-needed,
 process-automation, ambiguous). It parses the returned tool calls and scores them,
 including _executability_ against mock tool implementations. The fine-tuned model
@@ -222,18 +218,16 @@ the base model was weakest, with no regressions except _clarify_:
 | process_automation |   4 | 100% |     100% |
 | clarify            |   3 | 100% |  **67%** |
 
-Concretely, the fine-tuned model now reliably translates ("good morning" → Japanese),
-resolves ambiguous asks (`get_stock_price(TSLA)`; `set_reminder` instead of
-`get_weather`), and fills multi-argument process-automation calls (tickets, refunds,
-VM provisioning) correctly. There is one honest trade-off: the _clarify_ rate dipped
-(100% → 67%); function-calling SFT makes the model more eager to call a tool rather
-than ask for a missing argument. That is the expected effect and the clear next
-improvement: add more negative/clarification examples to the data mix.
+The fine-tuned model now reliably translates ("good morning" → Japanese), resolves
+ambiguous asks (`get_stock_price(TSLA)`; `set_reminder` instead of `get_weather`), and
+fills multi-argument process-automation calls (tickets, refunds, VM provisioning)
+correctly. The one regression is _clarify_ (100% → 67%): function-calling SFT makes the
+model more eager to call a tool rather than ask for a missing argument. This is
+expected; the fix is to add more negative and clarification examples to the data mix.
 
 ## Engineering Challenges
 
-The interesting work was diagnosing and _properly_ fixing several non-obvious issues
-(no runtime patches):
+Several non-obvious issues each needed a real fix rather than a runtime patch:
 
 - **ms-swift 4.x `[megatron]` is not on PyPI.** Every pip/uv install backtracked
   forever or pulled an incompatible torch (`No module named 'torch.multiprocessing'`).
