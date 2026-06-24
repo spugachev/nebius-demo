@@ -40,15 +40,15 @@ echo "node_rank=$NODE_RANK master=$MASTER_ADDR:$MASTER_PORT nnodes=$NNODES nproc
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader | head -1
 
 # Full SFT of an instruction-tuned MoE.
-#   PP=1 x EP=8 (expert shard per GPU) x TP=1 -> DP=2 (one replica per node) = 16 GPUs.
-#   Data-parallel across nodes (not pipeline): both nodes compute in parallel on
-#   different data, only an overlappable gradient all-reduce between them -> no
-#   cross-node pipeline bubbles, sustained >80% GPU utilization. (PLAN.md documents
-#   this as the alternative when PP across nodes idles GPUs — observed exactly that.)
-#   micro_batch=2, global_batch=16, DP=2 -> grad-accum 4 per replica. micro_batch=2
-#   (vs 1) gives each GPU larger GEMMs per micro-step, amortizing the DP all-reduce
-#   + MoE all-to-all + GDN-kernel sync overhead -> higher sustained util (>80%).
-#   recompute_granularity full -> fits activations; MoE fusions -> max throughput.
+#   PP=1, TP=1 -> data_parallel_size = world/(TP*PP) = 16. EP=8 is ORTHOGONAL to
+#   DP: it shards the 256 experts across 8 ranks *within* the DP dimension (so
+#   there are DP/EP = 2 expert-replica groups). No pipeline parallelism -> no
+#   cross-node pipeline bubbles (PP=2 across nodes idled GPUs; PLAN.md's documented
+#   alternative). DP=16 means the per-step all-reduce + MoE all-to-all happen every
+#   step, so per-step compute must be large enough to amortize them for >80% util.
+#   micro_batch=2, global_batch=32, DP=16 -> grad-accum 1, but each GPU now does 2
+#   samples/step (2x bigger GEMMs + 2x tokens per all-to-all) vs micro_batch=1's
+#   73% util. recompute_granularity full keeps activations small (~83GB at mb=1).
 #   save_safetensors true -> checkpoint is directly HF/vLLM-loadable (no separate export step).
 #   lr 5e-6 (not the example's 1e-5): model is already instruction-tuned (project decision).
 megatron sft \
@@ -66,7 +66,7 @@ megatron sft \
     --moe_aux_loss_coeff             1e-3 \
     \
     --micro_batch_size               2 \
-    --global_batch_size              16 \
+    --global_batch_size              32 \
     --packing                        true \
     --max_length                     8192 \
     \
