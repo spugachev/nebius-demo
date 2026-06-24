@@ -1,0 +1,970 @@
+{
+  "base_model": "qwen36-base",
+  "tuned_model": "qwen36-tuned",
+  "n": 23,
+  "base": {
+    "appropriate": 87.0,
+    "name_correct": 60.9,
+    "args_match": 56.5,
+    "executable": 65.2,
+    "name_acc_on_calls": 82.4,
+    "args_acc_on_calls": 76.5
+  },
+  "tuned": {
+    "appropriate": 95.7,
+    "name_correct": 73.9,
+    "args_match": 69.6,
+    "executable": 78.3,
+    "name_acc_on_calls": 100.0,
+    "args_acc_on_calls": 94.1
+  },
+  "rows": [
+    {
+      "id": "single-01",
+      "category": "single_tool",
+      "query": "What's the weather in Paris right now?",
+      "expected": {
+        "name": "get_weather",
+        "arguments": {
+          "city": "Paris"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "get_weather",
+          "arguments": {
+            "city": "Paris"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "get_weather",
+          "arguments": {
+            "city": "Paris"
+          }
+        }
+      },
+      "base_content": "Let me check the current weather in Paris for you.\n\n",
+      "tuned_content": null
+    },
+    {
+      "id": "single-02",
+      "category": "single_tool",
+      "query": "Convert 100 US dollars to euros.",
+      "expected": {
+        "name": "convert_currency",
+        "arguments": {
+          "amount": 100,
+          "from_currency": "USD",
+          "to_currency": "EUR"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "convert_currency",
+          "arguments": {
+            "amount": 100,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "convert_currency",
+          "arguments": {
+            "amount": 100,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "single-03",
+      "category": "single_tool",
+      "query": "What is the current stock price of Apple?",
+      "expected": {
+        "name": "get_stock_price",
+        "arguments": {
+          "symbol": "AAPL"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "get_stock_price",
+          "arguments": {
+            "symbol": "AAPL"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "get_stock_price",
+          "arguments": {
+            "symbol": "AAPL"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "single-04",
+      "category": "single_tool",
+      "query": "Set a reminder to call the dentist tomorrow at 9am.",
+      "expected": {
+        "name": "set_reminder",
+        "arguments": {
+          "text": "call the dentist"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "set_reminder",
+          "arguments": {
+            "text": "Call the dentist",
+            "datetime": "2023-10-03T09:00:00"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "set_reminder",
+          "arguments": {
+            "text": "Call the dentist",
+            "datetime": "2022-03-15T09:00:00"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "single-05",
+      "category": "single_tool",
+      "query": "Translate 'good morning' into Japanese.",
+      "expected": {
+        "name": "translate_text",
+        "arguments": {
+          "text": "good morning",
+          "target_language": "Japanese"
+        }
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": false,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": false,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "translate_text",
+          "arguments": {
+            "text": "good morning",
+            "target_language": "Japanese"
+          }
+        }
+      },
+      "base_content": "Good morning in Japanese is \"\u304a\u306f\u3088\u3046\u3054\u3056\u3044\u307e\u3059\" (Ohayou gozaimasu) for a polite form, or \"\u304a\u306f\u3088\u3046\" (Ohayou) for a casual form.",
+      "tuned_content": null
+    },
+    {
+      "id": "single-06",
+      "category": "single_tool",
+      "query": "How many items of SKU A-2291 do we have in stock?",
+      "expected": {
+        "name": "search_inventory",
+        "arguments": {
+          "sku": "A-2291"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "search_inventory",
+          "arguments": {
+            "sku": "A-2291"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "search_inventory",
+          "arguments": {
+            "sku": "A-2291"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "multi-01",
+      "category": "multi_arg",
+      "query": "Email john@acme.com with the subject 'Invoice overdue' and tell him payment is 5 days late.",
+      "expected": {
+        "name": "send_email",
+        "arguments": {
+          "to": "john@acme.com",
+          "subject": "Invoice overdue"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "send_email",
+          "arguments": {
+            "to": "john@acme.com",
+            "subject": "Invoice overdue",
+            "body": "Dear John,\n\nThis is a reminder that your payment is now 5 days late. Please arrange for payment at your earliest convenience.\n\nBest regards,\n[Your Name]"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "send_email",
+          "arguments": {
+            "to": "john@acme.com",
+            "subject": "Invoice overdue",
+            "body": "Payment is 5 days late."
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "multi-02",
+      "category": "multi_arg",
+      "query": "Schedule a 30-minute meeting titled 'Q3 planning' with alice@corp.io on 2026-07-01 at 14:00.",
+      "expected": {
+        "name": "schedule_meeting",
+        "arguments": {
+          "title": "Q3 planning",
+          "attendee": "alice@corp.io",
+          "start": "2026-07-01T14:00",
+          "duration_minutes": 30
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": false,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "schedule_meeting",
+          "arguments": {
+            "title": "Q3 planning",
+            "attendee": "alice@corp.io",
+            "start": "2026-07-01 at 14:00",
+            "duration_minutes": 30
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "schedule_meeting",
+          "arguments": {
+            "title": "Q3 planning",
+            "attendee": "alice@corp.io",
+            "start": "2026-07-01T14:00",
+            "duration_minutes": 30
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "multi-03",
+      "category": "multi_arg",
+      "query": "Book a flight from Berlin to Lisbon on 2026-08-12 for 2 passengers in economy.",
+      "expected": {
+        "name": "book_flight",
+        "arguments": {
+          "origin": "Berlin",
+          "destination": "Lisbon",
+          "date": "2026-08-12",
+          "passengers": 2,
+          "cabin": "economy"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "book_flight",
+          "arguments": {
+            "origin": "Berlin",
+            "destination": "Lisbon",
+            "date": "2026-08-12",
+            "passengers": 2,
+            "cabin": "economy"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "book_flight",
+          "arguments": {
+            "origin": "Berlin",
+            "destination": "Lisbon",
+            "date": "2026-08-12",
+            "passengers": 2,
+            "cabin": "economy"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "multi-04",
+      "category": "multi_arg",
+      "query": "Create an invoice for customer Acme Corp for 1200 EUR due on 2026-07-15.",
+      "expected": {
+        "name": "create_invoice",
+        "arguments": {
+          "customer": "Acme Corp",
+          "amount": 1200,
+          "currency": "EUR",
+          "due_date": "2026-07-15"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "create_invoice",
+          "arguments": {
+            "customer": "Acme Corp",
+            "amount": 1200,
+            "currency": "EUR",
+            "due_date": "2026-07-15"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "create_invoice",
+          "arguments": {
+            "customer": "Acme Corp",
+            "amount": 1200,
+            "currency": "EUR",
+            "due_date": "2026-07-15"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "multi-05",
+      "category": "multi_arg",
+      "query": "Update the CRM contact for sara@globex.com: set her status to 'qualified' and her company to 'Globex'.",
+      "expected": {
+        "name": "update_crm_contact",
+        "arguments": {
+          "email": "sara@globex.com",
+          "status": "qualified",
+          "company": "Globex"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "update_crm_contact",
+          "arguments": {
+            "email": "sara@globex.com",
+            "status": "qualified",
+            "company": "Globex"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "update_crm_contact",
+          "arguments": {
+            "email": "sara@globex.com",
+            "status": "qualified",
+            "company": "Globex"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "clarify-01",
+      "category": "clarify",
+      "query": "Can you book me a flight next week?",
+      "expected": {
+        "name": null,
+        "note": "missing origin/destination/date \u2014 should ask for clarification"
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "base_content": "I can help with that! To book a flight, I'll need a few more details:\n\n1.  **Origin:** Where are you flying from?\n2.  **Destination:** Where are you flying to?\n3.  **Date:** What specific date next week would you like to travel?\n4.  **Passengers:** How many people are traveling?",
+      "tuned_content": "Of course, I can help with that. Could you please provide me with the origin and destination of your flight, as well as the number of passengers?"
+    },
+    {
+      "id": "clarify-02",
+      "category": "clarify",
+      "query": "Send an email to the team about the outage.",
+      "expected": {
+        "name": null,
+        "note": "no concrete recipient address \u2014 should clarify"
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": false,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": false,
+        "executable": true,
+        "predicted": {
+          "name": "send_email",
+          "arguments": {
+            "to": "team@company.com",
+            "subject": "Outage Notification",
+            "body": "Dear Team, We are currently experiencing an outage. Our technical team is working on resolving the issue. We will keep you updated on the progress. Regards, Management"
+          }
+        }
+      },
+      "base_content": "I need a bit more information to send this email. Could you please provide:\n\n1. The email address(es) of the team members to send it to\n2. The subject line for the email\n3. The body content of the email (details about the outage, impact, resolution status, etc.)",
+      "tuned_content": null
+    },
+    {
+      "id": "clarify-03",
+      "category": "clarify",
+      "query": "Convert this amount to pounds.",
+      "expected": {
+        "name": null,
+        "note": "amount and source currency unknown \u2014 should clarify"
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "base_content": "Please provide the amount and the currency you want to convert from.",
+      "tuned_content": "Sure, I can help with that. Could you please tell me the amount and the currency you want to convert from?"
+    },
+    {
+      "id": "notool-01",
+      "category": "no_tool",
+      "query": "Thanks, that's all I needed for today!",
+      "expected": {
+        "name": null,
+        "note": "social closing \u2014 no tool call"
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "base_content": "You're welcome! Have a great day!",
+      "tuned_content": "You're welcome! If you have any other questions in the future, don't hesitate to ask. Have a great day!"
+    },
+    {
+      "id": "notool-02",
+      "category": "no_tool",
+      "query": "What do you think is the best programming language to learn first?",
+      "expected": {
+        "name": null,
+        "note": "opinion question, no relevant tool"
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "base_content": "There is no single \"best\" programming language for everyone, as the right choice depends heavily on your goals, interests, and background. However, here are the most commonly recommended options for beginners, along with why they are good choices:\n\n### 1. **Python**\n*   **Why it\u2019s great:** Python has a very simple, readable syntax that resembles English. It\u2019s versatile and used in web development, data science, artificial intelligence, automation, and more.\n*   **Best for:** Beginners who want to see results quickly, those interested in data science/AI, or general-purpose programming.\n*   **Downside:** Can be slower than compiled languages like C++ or Java.\n\n### 2. **JavaScript**\n*   **Why it\u2019s great:** It\u2019s the language of the web. If you want to build interactive websites, web apps, or even mobile apps (with frameworks like React Native), JavaScript is essential. It runs directly in your browser, so you don\u2019t need to install much software to start.\n*   **Best for:** Aspiring web developers, front-end or full-stack engineers.\n*   **Downside:** The ecosystem changes rapidly, and some quirks in the language can be confusing for beginners.\n\n### 3. **Java**\n*   **Why it\u2019s great:** Java is strongly typed and object-oriented, which teaches good programming habits and structure. It\u2019s widely used in enterprise environments, Android app development, and large-scale systems.\n*   **Best for:** Students, those aiming for corporate/enterprise jobs, or Android app development.\n*   **Downside:** The syntax is more verbose and complex than Python or JavaScript, which can be overwhelming at first.\n\n### 4. **C#**\n*   **Why it\u2019s great:** Similar to Java, C# is a strong, object-oriented language. It\u2019s the primary language for game development using Unity, one of the most popular game engines.\n*   **Best for:** Aspiring game developers or those interested in Microsoft ecosystems.\n*   **Downside:** Less versatile outside of Microsoft/Unity environments compared to Python or JavaScript.\n\n### 5. **Scratch** (for absolute beginners, especially kids)\n*   **Why it\u2019s great:** A visual programming language that uses drag-and-drop blocks. It teaches core programming concepts (loops, conditionals, variables) without the frustration of syntax errors.\n*   **Best for:** Young learners or",
+      "tuned_content": "The best programming language to learn first depends on your goals and interests. However, some popular choices for beginners include Python, JavaScript, and Java. These languages are widely used in various industries and have a relatively simple syntax, making them easier to learn."
+    },
+    {
+      "id": "notool-03",
+      "category": "no_tool",
+      "query": "Please summarize the key idea of reinforcement learning in one sentence.",
+      "expected": {
+        "name": null,
+        "note": "knowledge question, translate tool not applicable"
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": false,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": true,
+        "executable": false,
+        "predicted": null
+      },
+      "base_content": "Reinforcement learning is a type of machine learning where an agent learns to make decisions by performing actions in an environment to maximize cumulative rewards through trial and error.",
+      "tuned_content": "Reinforcement learning is a type of machine learning where an agent learns to make decisions by interacting with an environment and receiving rewards or punishments for its actions."
+    },
+    {
+      "id": "proc-01",
+      "category": "process_automation",
+      "query": "A customer reported a failed payment. Open a support ticket for Acme Corp categorized as payment_failure with high priority.",
+      "expected": {
+        "name": "create_ticket",
+        "arguments": {
+          "customer": "Acme Corp",
+          "category": "payment_failure",
+          "priority": "high"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "create_ticket",
+          "arguments": {
+            "customer": "Acme Corp",
+            "category": "payment_failure",
+            "priority": "high"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "create_ticket",
+          "arguments": {
+            "customer": "Acme Corp",
+            "category": "payment_failure",
+            "priority": "high"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "proc-02",
+      "category": "process_automation",
+      "query": "Onboard new employee Maria Lopez in the Engineering department starting 2026-07-07.",
+      "expected": {
+        "name": "create_employee_onboarding",
+        "arguments": {
+          "name": "Maria Lopez",
+          "department": "Engineering",
+          "start_date": "2026-07-07"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "create_employee_onboarding",
+          "arguments": {
+            "name": "Maria Lopez",
+            "department": "Engineering",
+            "start_date": "2026-07-07"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "create_employee_onboarding",
+          "arguments": {
+            "name": "Maria Lopez",
+            "department": "Engineering",
+            "start_date": "2026-07-07"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "proc-03",
+      "category": "process_automation",
+      "query": "Trigger a refund of 49.99 USD for order ORD-7781.",
+      "expected": {
+        "name": "issue_refund",
+        "arguments": {
+          "order_id": "ORD-7781",
+          "amount": 49.99,
+          "currency": "USD"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "issue_refund",
+          "arguments": {
+            "order_id": "ORD-7781",
+            "amount": 49.99,
+            "currency": "USD"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "issue_refund",
+          "arguments": {
+            "order_id": "ORD-7781",
+            "amount": 49.99,
+            "currency": "USD"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "proc-04",
+      "category": "process_automation",
+      "query": "Provision a new VM named build-runner-3 with 8 vCPUs and 32 GB RAM in region eu-north2.",
+      "expected": {
+        "name": "provision_vm",
+        "arguments": {
+          "name": "build-runner-3",
+          "vcpus": 8,
+          "ram_gb": 32,
+          "region": "eu-north2"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "provision_vm",
+          "arguments": {
+            "name": "build-runner-3",
+            "vcpus": 8,
+            "ram_gb": 32,
+            "region": "eu-north2"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "provision_vm",
+          "arguments": {
+            "name": "build-runner-3",
+            "vcpus": 8,
+            "ram_gb": 32,
+            "region": "eu-north2"
+          }
+        }
+      },
+      "base_content": null,
+      "tuned_content": null
+    },
+    {
+      "id": "ambig-01",
+      "category": "ambiguous",
+      "query": "Remind me about the Paris weather later.",
+      "expected": {
+        "name": "set_reminder",
+        "arguments": {
+          "text": "Paris weather"
+        }
+      },
+      "base": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": false,
+        "executable": true,
+        "predicted": {
+          "name": "get_weather",
+          "arguments": {
+            "city": "Paris"
+          }
+        }
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": false,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "set_reminder",
+          "arguments": {
+            "text": "Check the weather in Paris",
+            "datetime": "later"
+          }
+        }
+      },
+      "base_content": "I can help with that. First, let me check the current weather in Paris.\n\n",
+      "tuned_content": null
+    },
+    {
+      "id": "ambig-02",
+      "category": "ambiguous",
+      "query": "I need the latest figures for Tesla.",
+      "expected": {
+        "name": "get_stock_price",
+        "arguments": {
+          "symbol": "TSLA"
+        }
+      },
+      "base": {
+        "called": false,
+        "valid_tool_call": false,
+        "name_correct": false,
+        "args_match": false,
+        "appropriate": false,
+        "executable": false,
+        "predicted": null
+      },
+      "tuned": {
+        "called": true,
+        "valid_tool_call": true,
+        "name_correct": true,
+        "args_match": true,
+        "appropriate": true,
+        "executable": true,
+        "predicted": {
+          "name": "get_stock_price",
+          "arguments": {
+            "symbol": "TSLA"
+          }
+        }
+      },
+      "base_content": "I can help you with that. Could you please specify if you're looking for Tesla's stock price or inventory figures? If it's the stock price, I'll need the ticker symbol (e.g., TSLA). If it's inventory, I'll need the SKU.",
+      "tuned_content": null
+    }
+  ]
+}
