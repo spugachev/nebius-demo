@@ -5,13 +5,13 @@ multi-node training (Exercise 1) and base-vs-tuned inference comparison (Exercis
 
 ### Results at a glance
 
-| | |
-|---|---|
-| **Model** | Qwen3.6-35B-A3B (Mixture-of-Experts, 35B total / ~3B active) |
-| **Cluster** | 2 nodes × 8 H200 on Nebius Soperator (Slurm on Kubernetes) |
-| **GPU utilization** | **85-92% sustained** across all 16 GPUs (target: >80%) |
-| **Training** | full SFT, 3 epochs, completed in **51m33s**, no out-of-memory errors |
-| **Tuned vs base** | function-name accuracy **82→100%**, arguments **76→94%**, appropriate call/no-call **87→96%** |
+|                     |                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| **Model**           | Qwen3.6-35B-A3B (Mixture-of-Experts, 35B total / ~3B active)                                  |
+| **Cluster**         | 2 nodes × 8 H200 on Nebius Soperator (Slurm on Kubernetes)                                    |
+| **GPU utilization** | **85-92% sustained** across all 16 GPUs (target: >80%)                                        |
+| **Training**        | full SFT, 3 epochs, completed in **51m33s**, no out-of-memory errors                          |
+| **Tuned vs base**   | function-name accuracy **82→100%**, arguments **76→94%**, appropriate call/no-call **87→96%** |
 
 ## Summary
 
@@ -31,10 +31,10 @@ stalls at 10-20%. The data is the public
 [**hypervariance/function-calling-sharegpt**](https://huggingface.co/datasets/hypervariance/function-calling-sharegpt)
 corpus (~75k usable conversations) normalized through the tokenizer's chat template.
 The run completed in 51 minutes at **85-92% sustained GPU utilization** (the
-assignment's >80% target), verified on the Nebius DCGM dashboard. We then served the
+assignment's >80% target), verified on the Nebius dashboard. We then served the
 base and fine-tuned models side-by-side with [**vLLM**](https://github.com/vllm-project/vllm)
 and evaluated them on a 23-case function-calling suite, where the fine-tuned model
-improved on every metric (detailed in *Inference and Evaluation*).
+improved on every metric (detailed in _Inference and Evaluation_).
 
 ## Background & Objective
 
@@ -72,8 +72,7 @@ SPANK plugin** (not Docker): jobs run with `srun --container-image=...`, and a s
 `.sqsh` image on the shared filesystem is reused by both nodes for a reproducible,
 drift-free environment. Before training we ran the built-in NCCL (NVIDIA Collective
 Communications Library) multi-node all-reduce check and measured **~475 GB/s** bus
-bandwidth (target >300 GB/s), confirming the inter-node interconnect. The deployment runs in the shared tenant
-`csa-hiring-sandboxK`, with the `public_o11y_enabled = false` recipe workaround applied.
+bandwidth (target >300 GB/s), confirming the inter-node interconnect.
 
 ## Model and Framework
 
@@ -103,8 +102,7 @@ GPU utilization high; naive MoE training (e.g. DeepSpeed ZeRO-3 + LoRA) is repor
 to stall at 10-20% and has documented incompatibilities. We use **full SFT rather
 than LoRA** because LoRA on MoE with Expert Parallelism at this scale is undocumented
 and risks falling below the 80% utilization requirement; full SFT is the proven path
-to >80%. We mitigate the catastrophic forgetting that full SFT can cause by keeping
-non-tool conversations in the data mix.
+to >80%.
 
 **Tool-call format.** Qwen3.6 emits XML-style tool calls
 (`<function=name><parameter=key>value</parameter></function>`), so inference uses the
@@ -133,7 +131,7 @@ cleaner output for an automation integration.
 ## Training
 
 Training runs from the **official ms-swift enroot image** with `tilelang` baked in
-(see *Engineering Challenges*), invoked as `megatron sft` from a two-script pattern:
+(see _Engineering Challenges_), invoked as `megatron sft` from a two-script pattern:
 an sbatch script sets `MASTER_ADDR`/`NNODES`, and an `srun` runner sets `NODE_RANK`
 per node (the separation avoids quoting issues and rank collisions).
 
@@ -144,15 +142,15 @@ replicas and stay busy (the only inter-node traffic is an overlappable gradient
 all-reduce plus the MoE all-to-all).
 The main configuration:
 
-| Setting | Value | Rationale |
-|---|---|---|
-| Parallelism | PP=1, TP=1, EP=8 (DP=16) | experts sharded within a node; no cross-node pipeline bubbles |
-| Batch | micro 2, global 32 | enough compute per step to keep utilization >80% |
-| Sequence | packing on, length 8192 | packs short conversations into full windows |
-| Memory | full activation recompute, bf16 | fits the model + optimizer in 143 GB |
-| Attention | flash | throughput |
-| Optimization | lr 5e-6, cosine, 3 epochs | conservative for an already instruction-tuned model |
-| Checkpoint | `save_safetensors` | written as a complete HuggingFace directory |
+| Setting      | Value                           | Rationale                                                     |
+| ------------ | ------------------------------- | ------------------------------------------------------------- |
+| Parallelism  | PP=1, TP=1, EP=8 (DP=16)        | experts sharded within a node; no cross-node pipeline bubbles |
+| Batch        | micro 2, global 32              | enough compute per step to keep utilization >80%              |
+| Sequence     | packing on, length 8192         | packs short conversations into full windows                   |
+| Memory       | full activation recompute, bf16 | fits the model + optimizer in 143 GB                          |
+| Attention    | flash                           | throughput                                                    |
+| Optimization | lr 5e-6, cosine, 3 epochs       | conservative for an already instruction-tuned model           |
+| Checkpoint   | `save_safetensors`              | written as a complete HuggingFace directory                   |
 
 We enable the MoE fusions (`grouped_gemm`, `permute_fusion`, `shared_expert_overlap`)
 for throughput. Because `save_safetensors` writes a standard HuggingFace checkpoint,
@@ -169,8 +167,7 @@ The assignment's key metric is **DCGM_FI_DEV_GPU_UTIL** (from NVIDIA's Data Cent
 Manager): the fraction of time the GPU executes kernels. We **sustained 85-92% across all 16 H200 GPUs** (mean ≈ 85%) during
 steady-state training, comfortably above the >80% target. We measured utilization two
 ways that agree: live from the cluster with an overlapping step on the job's own
-allocation (`srun --jobid=N --overlap ... nvidia-smi`), and on the **Nebius console
-DCGM dashboard** (GPU-metrics view). A representative single sample of all 16 GPUs
+allocation (`srun --jobid=N --overlap ... nvidia-smi`), and on the **Nebius console dashboard** (GPU-metrics view). A representative single sample of all 16 GPUs
 (8 per node) during steady-state training illustrates the balance:
 
 ```
@@ -200,42 +197,42 @@ dependency-light harness that sends the same 23 hand-written prompts to each mod
 temperature 0 (so the comparison is deterministic and reproducible), across six
 categories (single-tool, multi-argument, should-clarify, no-tool-needed,
 process-automation, ambiguous). It parses the returned tool calls and scores them,
-including *executability* against mock tool implementations. The fine-tuned model
+including _executability_ against mock tool implementations. The fine-tuned model
 improves on every aggregate metric:
 
-| Metric | Base | Tuned | Δ |
-|---|---:|---:|---:|
-| Appropriate call / no-call | 87.0% | **95.7%** | +8.7 |
+| Metric                              |  Base |      Tuned |     Δ |
+| ----------------------------------- | ----: | ---------: | ----: |
+| Appropriate call / no-call          | 87.0% |  **95.7%** |  +8.7 |
 | Function-name accuracy (call cases) | 82.4% | **100.0%** | +17.6 |
-| Argument exact-match (call cases) | 76.5% | **94.1%** | +17.6 |
-| Executable against mock tools | 65.2% | **78.3%** | +13.1 |
+| Argument exact-match (call cases)   | 76.5% |  **94.1%** | +17.6 |
+| Executable against mock tools       | 65.2% |  **78.3%** | +13.1 |
 
-Here *appropriate* counts the model correct when it calls a tool exactly when one is
-warranted and declines otherwise; *call cases* are the prompts where a tool call was
-expected; and *executable* means the predicted call runs against a mock implementation
+Here _appropriate_ counts the model correct when it calls a tool exactly when one is
+warranted and declines otherwise; _call cases_ are the prompts where a tool call was
+expected; and _executable_ means the predicted call runs against a mock implementation
 without error. Broken down by category (appropriate call/no-call rate), the gains concentrate where
-the base model was weakest, with no regressions except *clarify*:
+the base model was weakest, with no regressions except _clarify_:
 
-| Category | n | Base | Tuned |
-|---|---:|---:|---:|
-| ambiguous | 2 | 0% | **100%** |
-| single_tool | 6 | 83% | **100%** |
-| multi_arg | 5 | 100% | 100% |
-| no_tool | 3 | 100% | 100% |
-| process_automation | 4 | 100% | 100% |
-| clarify | 3 | 100% | **67%** |
+| Category           |   n | Base |    Tuned |
+| ------------------ | --: | ---: | -------: |
+| ambiguous          |   2 |   0% | **100%** |
+| single_tool        |   6 |  83% | **100%** |
+| multi_arg          |   5 | 100% |     100% |
+| no_tool            |   3 | 100% |     100% |
+| process_automation |   4 | 100% |     100% |
+| clarify            |   3 | 100% |  **67%** |
 
 Concretely, the fine-tuned model now reliably translates ("good morning" → Japanese),
 resolves ambiguous asks (`get_stock_price(TSLA)`; `set_reminder` instead of
 `get_weather`), and fills multi-argument process-automation calls (tickets, refunds,
-VM provisioning) correctly. There is one honest trade-off: the *clarify* rate dipped
+VM provisioning) correctly. There is one honest trade-off: the _clarify_ rate dipped
 (100% → 67%); function-calling SFT makes the model more eager to call a tool rather
 than ask for a missing argument. That is the expected effect and the clear next
 improvement: add more negative/clarification examples to the data mix.
 
 ## Engineering Challenges
 
-The interesting work was diagnosing and *properly* fixing several non-obvious issues
+The interesting work was diagnosing and _properly_ fixing several non-obvious issues
 (no runtime patches):
 
 - **ms-swift 4.x `[megatron]` is not on PyPI.** Every pip/uv install backtracked
@@ -265,56 +262,3 @@ The customer receives a self-contained repository:
   command-line client for ad-hoc tool-call queries.
 - **`eval/`**: the 23-case test suite, mock tools, the comparison harness, and the
   saved results.
-- **`docs/`**: architecture, a monitoring guide, a troubleshooting log, and a
-  five-minute demo-day script.
-
-## Reproducibility and Scaling
-
-The whole workflow is scripted for reproduction: provision with Terraform, prepare the
-data locally, then run four `sbatch` jobs (predownload → import image → build image →
-train), with serving and the evaluation as two more. Each step is a single command, so
-the PoC team can reproduce the full pipeline without bespoke setup.
-
-The approach **scales to the planned 512× H100 reservation without changing the
-workflow**: the same Megatron-SWIFT + Expert-Parallelism recipe extends by adding
-nodes (more data-parallel replicas) and/or moving to larger MoE models, while the
-Slurm interface, container image, and shared-filesystem layout stay identical.
-
-For a six-month reservation, sustained utilization is the central economic question:
-reserved GPUs are billed whether or not they compute, so the gap between the 10-20%
-of naive MoE training and the 85%+ shown here is roughly a 4x difference in effective
-cost per fine-tuned model. Demonstrating that an ML-focused team can reach that level
-on Soperator, with a familiar Slurm interface and no Kubernetes expertise, is the
-core de-risking this PoC provides.
-
-## Limitations and Future Work
-
-This is a proof of concept, and a few things are deliberately out of scope:
-
-- **Evaluation breadth.** The suite is 23 hand-written cases. It is enough to show a
-  clear, directional improvement, but a production assessment would use hundreds of
-  cases and report confidence intervals across multiple decoding seeds.
-- **The clarify regression.** Fine-tuning made the model more eager to call a tool, so
-  its rate of correctly asking for a missing argument fell (100% to 67%). The fix is
-  known: add more "should-clarify" and "no suitable tool" negative examples to the
-  training mix and re-run.
-- **General-capability retention.** We mitigated catastrophic forgetting by keeping
-  non-tool conversations in the data, but did not separately measure general
-  instruction-following before and after. A held-out general benchmark would quantify
-  any regression.
-- **Single run.** Results are from one training run and one comparison. The pipeline is
-  reproducible, but we did not repeat for variance.
-- **Serving performance.** We verified correctness, not throughput/latency under load;
-  a serving benchmark (tokens/s, p95 latency) would round out the inference story.
-
-## Conclusion
-
-Both exercises are complete. We fine-tuned a 2026 35B MoE function-calling model
-across 16 H200 GPUs on Nebius Soperator at **85-92% sustained GPU utilization**
-(requirement: >80%) in under an hour, and demonstrated a **measurable quality
-improvement** of the tuned model over the base (function-name accuracy 82 → 100%,
-argument exact-match 76 → 94%). The result is a reproducible, well-documented,
-end-to-end template the PoC team can run themselves and scale to their full
-reservation. The bottom line for the reservation decision: Nebius Soperator supports
-efficient, current-generation MoE fine-tuning using the team's existing Slurm skills,
-which is exactly the capability the 512-GPU commitment is meant to unlock.
