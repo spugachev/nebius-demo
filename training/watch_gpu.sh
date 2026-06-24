@@ -1,28 +1,24 @@
 #!/bin/bash
-# Run on login node to watch GPU utilization during training.
-# Usage: bash watch_gpu.sh [job_id]
+# Live GPU utilization of a RUNNING training job, across both nodes.
+# Usage: bash watch_gpu.sh <JOB_ID> [interval_seconds]
 #
-# Reads DCGM log written by train.slurm, or polls live via dcgmi.
+# Uses `srun --overlap` to attach to the job's own allocation and read
+# nvidia-smi (utilization.gpu = DCGM_FI_DEV_GPU_UTIL equivalent). This is
+# robust: the dcgmi sidecar needs nv-hostengine and only sees one node.
+#
+# Judge utilization only AFTER warmup — the first iteration JIT-compiles
+# TransformerEngine + tilelang kernels (~5 min), during which util is choppy.
+set -e
 
-JOB_ID="${1:-}"
-LOG_DIR="/data/logs"
+JOB_ID="${1:?usage: watch_gpu.sh <JOB_ID> [interval_seconds]}"
+INTERVAL="${2:-10}"
 
-if [ -n "$JOB_ID" ] && [ -f "$LOG_DIR/gpu_util_${JOB_ID}.log" ]; then
-    echo "Tailing DCGM log for job $JOB_ID (DCGM_FI_DEV_GPU_UTIL = field 203)"
-    tail -f "$LOG_DIR/gpu_util_${JOB_ID}.log"
-else
-    echo "Live DCGM poll (all GPUs, 5 s interval). Ctrl-C to stop."
-    echo "Target: >80% utilization during training"
-    echo ""
-    # Header
-    printf "%-12s %-8s %-8s %s\n" "Time" "GPU" "Util%" "Node"
-    while true; do
-        squeue --format="%i %R" --noheader 2>/dev/null | grep -q swift && STATUS="RUNNING" || STATUS="no training job"
-        echo "--- $(date '+%H:%M:%S') | $STATUS ---"
-        srun --ntasks-per-node=1 --nodes=2 --partition=main \
-             dcgmi dmon -e 203 -c 1 2>/dev/null | \
-             grep -v '^#\|^$' | \
-             awk -v ts="$(date '+%H:%M:%S')" '{printf "%-12s GPU%-5s %-8s %s\n", ts, $1, $2, ENVIRON["SLURMD_NODENAME"]}'
-        sleep 10
-    done
-fi
+echo "Watching GPU util for job $JOB_ID (both nodes, every ${INTERVAL}s). Target: >80%. Ctrl-C to stop."
+while squeue -h -j "$JOB_ID" -o '%T' 2>/dev/null | grep -q RUNNING; do
+    VALS=$(srun --jobid="$JOB_ID" --overlap --ntasks-per-node=1 --nodes=2 \
+                nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | paste -sd' ')
+    AVG=$(echo "$VALS" | tr ' ' '\n' | awk '{s+=$1;n++} END{if(n) printf "%.0f", s/n}')
+    echo "$(date '+%H:%M:%S')  mean=${AVG}%   per-gpu: $VALS"
+    sleep "$INTERVAL"
+done
+echo "Job $JOB_ID is no longer RUNNING."
