@@ -1,4 +1,4 @@
-# Base vs Fine-tuned — Function Calling Comparison
+# Base vs Fine-tuned: Function Calling Comparison
 
 - Prompts: **23**  |  base: `qwen36-base`  |  tuned: `qwen36-tuned`
 

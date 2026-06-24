@@ -4,8 +4,8 @@
 Sends each prompt in prompts.jsonl to two OpenAI-compatible vLLM endpoints
 (base + tuned), parses the tool calls, scores them, and writes a report.
 
-Stdlib only (urllib) so it runs anywhere — on the login node or inside the
-container — without extra deps. Model names are auto-detected via /v1/models.
+Stdlib only (urllib) so it runs anywhere, on the login node or inside the
+container, without extra deps. Model names are auto-detected via /v1/models.
 
 Usage:
     python compare.py \
@@ -71,7 +71,7 @@ def call_model(base_url: str, model: str, query: str, tools: list) -> dict:
             "max_tokens": 512,
             # Disable Qwen3.6 thinking per-request (vLLM 0.23.0 has no
             # --chat-template-kwargs CLI flag; it accepts this in the body).
-            # Matches training (enable_thinking=false) → apples-to-apples.
+            # Matches training (enable_thinking=false) for an identical comparison.
             "chat_template_kwargs": {"enable_thinking": False},
         },
     )
@@ -218,7 +218,7 @@ def main() -> None:
          "base": base_agg, "tuned": tuned_agg, "rows": rows}, indent=2))
 
     lines = [
-        "# Base vs Fine-tuned — Function Calling Comparison\n",
+        "# Base vs Fine-tuned: Function Calling Comparison\n",
         f"- Prompts: **{len(rows)}**  |  base: `{base_model}`  |  tuned: `{tuned_model}`\n",
         "\n## Metrics (%)\n",
         "| Metric | Base | Tuned | Δ |",

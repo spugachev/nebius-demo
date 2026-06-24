@@ -20,7 +20,7 @@ set -e
 # force apache-tvm-ffi>=0.1.10, which (a) breaks the vllm stack and (b) makes
 # tilelang's bundled TVM double-register FFI types against the image's tvm_ffi
 # ("__ffi_repr__ already registered"). With 0.1.9 everything reuses the image's
-# single libtvm_ffi.so — no conflict, nothing else upgraded. All of tilelang's
+# single libtvm_ffi.so, no conflict, nothing else upgraded. All of tilelang's
 # other deps (torch-c-dlpack-ext, z3-solver<4.15.5, ml-dtypes) are already in
 # the image, so this is a clean, minimal, version-matched install.
 

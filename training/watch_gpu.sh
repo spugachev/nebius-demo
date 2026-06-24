@@ -6,7 +6,7 @@
 # nvidia-smi (utilization.gpu = DCGM_FI_DEV_GPU_UTIL equivalent). This is
 # robust: the dcgmi sidecar needs nv-hostengine and only sees one node.
 #
-# Judge utilization only AFTER warmup — the first iteration JIT-compiles
+# Judge utilization only AFTER warmup, the first iteration JIT-compiles
 # TransformerEngine + tilelang kernels (~5 min), during which util is choppy.
 set -e
 

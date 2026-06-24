@@ -11,7 +11,7 @@
 
 set -e
 
-# De-risk inference: can vLLM (in the ms-swift image) load Qwen3.6 (hybrid MoE +
+# Smoke test: can vLLM (in the ms-swift image) load Qwen3.6 (hybrid MoE +
 # Gated DeltaNet) and emit a tool call with the qwen3_coder parser? Serve the BASE
 # model on 2 GPUs, send one tool-call request, print the result, shut down.
 
@@ -38,7 +38,7 @@ trap "kill $SERVER_PID 2>/dev/null" EXIT
 echo "=== waiting for /health (up to ~15 min) ==="
 for i in $(seq 1 90); do
     if curl -sf http://localhost:'"$PORT"'/health >/dev/null 2>&1; then echo "server ready after ${i}0s"; break; fi
-    if ! kill -0 $SERVER_PID 2>/dev/null; then echo "SERVER DIED — tail of log:"; tail -40 /data/logs/vllm-smoke-server.log; exit 1; fi
+    if ! kill -0 $SERVER_PID 2>/dev/null; then echo "SERVER DIED, tail of log:"; tail -40 /data/logs/vllm-smoke-server.log; exit 1; fi
     sleep 10
 done
 

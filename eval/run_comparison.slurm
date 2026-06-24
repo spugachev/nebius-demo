@@ -14,8 +14,8 @@ set -e
 # Base vs fine-tuned function-calling comparison on ONE node:
 #   base  → GPUs 0,1 (TP=2) on :8000
 #   tuned → GPUs 2,3 (TP=2) on :8001
-# Both served from the ms-swift image (vLLM 0.23.0, supports Qwen3.6 GDN — smoke-tested),
-# enable_thinking=false for an apples-to-apples comparison. Then compare.py scores both.
+# Both served from the ms-swift image (vLLM 0.23.0, supports Qwen3.6 GDN, smoke-tested),
+# enable_thinking=false for an identical comparison. Then compare.py scores both.
 
 BASE_MODEL="/data/models/Qwen3.6-35B-A3B/Qwen/Qwen3.6-35B-A3B"
 TUNED_MODEL="/data/checkpoints/qwen3-fc-20260624-0025/v0-20260624-082630/checkpoint-426"

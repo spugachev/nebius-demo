@@ -515,3 +515,8 @@ ssh/
 terraform/.terraform/
 terraform/.terraform.tfstate.lock.info
 terraform/assets/
+# Word temp lock files
+~$*
+
+# deliverable export (built from source on demand)
+deliver/

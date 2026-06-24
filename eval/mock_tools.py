@@ -2,7 +2,7 @@
 
 Used by compare.py for the `executable_success_rate` metric: a predicted tool call
 is "executable" if its function exists here and the call runs without raising
-(i.e. required arguments are present and well-typed). Returns are canned — we test
+(i.e. required arguments are present and well-typed). Returns are canned, we test
 call *correctness*, not real side effects.
 """
 from __future__ import annotations

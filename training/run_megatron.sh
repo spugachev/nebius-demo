@@ -34,7 +34,7 @@ export MODELSCOPE_CACHE=/data/.cache/modelscope
 # Qwen3.6's Gated DeltaNet layers need the tilelang backend on Hopper (fla's
 # Triton chunk_bwd_dqkwg is wrong on Triton>=3.4). tilelang is baked into the
 # training image (swift431-tl.sqsh) by build_image_tl.slurm, so it just imports
-# normally here — no PYTHONPATH/LD_LIBRARY_PATH shims needed.
+# normally here, no PYTHONPATH/LD_LIBRARY_PATH shims needed.
 
 echo "node_rank=$NODE_RANK master=$MASTER_ADDR:$MASTER_PORT nnodes=$NNODES nproc_per_node=$NPROC_PER_NODE"
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader | head -1

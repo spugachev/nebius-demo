@@ -1,4 +1,4 @@
-# Nebius Soperator — Multi-Node LLM Fine-Tuning for Function Calling
+# Nebius Soperator: Multi-Node LLM Fine-Tuning for Function Calling
 
 End-to-end example for a Nebius PoC: fine-tune a 2026 open-weight MoE LLM
 (**Qwen3.6-35B-A3B**) for function calling on **Nebius Soperator** (Slurm on
@@ -6,9 +6,9 @@ Kubernetes) across **2 nodes × 8 H200 GPUs**, then serve and compare base vs
 tuned with vLLM.
 
 > **Status: both exercises complete.**
-> - **Exercise 1 (training):** full SFT ran in **51m33s** on 16×H200 at **85–92%
+> - **Exercise 1 (training):** full SFT ran in **51m33s** on 16×H200 at **85-92%
 >   sustained GPU utilization** (requirement: >80%), loss 0.20→0.13, eval 0.196.
-> - **Exercise 2 (inference):** tuned beats base on every metric — function-name
+> - **Exercise 2 (inference):** tuned beats base on every metric, function-name
 >   accuracy 82→**100%**, argument exact-match 76→**94%**, appropriate call/no-call
 >   87→**96%** (`eval/results/comparison.md`).
 > - **Docs:** architecture / monitoring / troubleshooting / demo script in `docs/`.
@@ -22,7 +22,7 @@ tuned with vLLM.
   Qwen-team-recommended path that hits >80% GPU util on MoE (DeepSpeed/TRL do not).
 - Reproducible environment via **enroot** containers (the official ms-swift image,
   no fragile pip installs).
-- >80% GPU utilization on the Nebius DCGM dashboards — the assignment's key metric.
+- >80% GPU utilization on the Nebius DCGM dashboards, the assignment's key metric.
 - A realistic function-calling dataset pipeline and a base-vs-tuned evaluation.
 
 ## Stack
@@ -95,12 +95,12 @@ sbatch /data/code/eval/run_comparison.slurm   # base :8000 + tuned :8001, then c
 # → /data/logs/comparison-<JOB>.md  (saved in repo: eval/results/comparison.md)
 ```
 Both serve with `--tool-call-parser qwen3_coder`; the client sends
-`chat_template_kwargs={"enable_thinking": false}` for an apples-to-apples comparison.
+`chat_template_kwargs={"enable_thinking": false}` for an identical comparison.
 For interactive/demo serving use `inference/serve_base.sh` / `serve_tuned.sh`.
 
 ### Query both models by hand (interactive)
 
-The login node has no GPUs — drop into the container on a GPU worker, start both
+The login node has no GPUs, drop into the container on a GPU worker, start both
 servers, then `curl` them.
 
 **1. Shell into the container on a GPU node (4 GPUs: 2 per model):**
@@ -125,7 +125,7 @@ until curl -sf localhost:8000/health && curl -sf localhost:8001/health; do sleep
 ```
 
 **3. Ask both models** with the `inference/ask.py` helper (Python handles
-JSON/quoting cleanly — far more paste-safe than a bash function). It ships in the
+JSON/quoting cleanly, far more paste-safe than a bash function). It ships in the
 repo and is already uploaded to `/data/ask.py`; it disables thinking per request,
 like training:
 ```bash
@@ -141,21 +141,21 @@ tool_calls: [{"type":"function","function":{"name":"create_ticket",
 
 Edit `$Q` for your own cases and the `tools` list in `ask.py` for your own
 functions (re-`scp` after editing). For one model only, use `--gpus-per-node=2`
-and start a single `vllm serve … --port 8000`. `exit` frees the GPUs (servers stop
+and start a single `vllm serve ... --port 8000`. `exit` frees the GPUs (servers stop
 with the allocation).
 
 ## Key engineering notes
 
 The hard-won, non-obvious facts (full detail in `CLAUDE.md`):
 
-1. **Environment must be the official ms-swift docker image, not pip/uv** — ms-swift
+1. **Environment must be the official ms-swift docker image, not pip/uv**, ms-swift
    4.x with the `[megatron]` extra is not on PyPI; pip/uv either backtrack forever
    or pull an incompatible torch.
-2. **Qwen3.6 has Gated DeltaNet layers that need `tilelang` on Hopper** — pin
+2. **Qwen3.6 has Gated DeltaNet layers that need `tilelang` on Hopper**, pin
    `tilelang==0.1.9` to match the image's `apache-tvm-ffi 0.1.9` (shared with vLLM);
    bake it into a derived image, no runtime patches.
 3. **Parallelism: PP=1 / EP=8 → DP=16** (EP is orthogonal to DP). PP=2 across nodes
    idled GPUs with pipeline bubbles.
 4. **micro_batch_size=2 / global_batch_size=32 → 85% util** (micro_batch=1 gave 73%);
    `global_batch` must be divisible by `micro_batch × 16`.
-5. **No checkpoint export** — `--save_safetensors=true` writes a complete HF checkpoint.
+5. **No checkpoint export**, `--save_safetensors=true` writes a complete HF checkpoint.

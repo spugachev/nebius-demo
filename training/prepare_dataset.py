@@ -23,7 +23,7 @@ from transformers import AutoTokenizer
 def _extract_tools(system_text: str) -> list[dict] | None:
     """Extract JSON tool schema(s) embedded as free text in the system message.
 
-    hypervariance uses a single {…} object (not an array) per conversation.
+    hypervariance uses a single {...} object (not an array) per conversation.
     """
     # Try JSON array first (future-proof)
     for match in re.finditer(r'\[.*?\]', system_text, re.DOTALL):
@@ -36,7 +36,7 @@ def _extract_tools(system_text: str) -> list[dict] | None:
         except (json.JSONDecodeError, TypeError):
             continue
 
-    # Try single object — the common case in hypervariance
+    # Try single object, the common case in hypervariance
     # Use a simple brace-matching approach to find the outermost {...}
     start = system_text.find('{')
     if start == -1:
@@ -66,7 +66,7 @@ def _parse_arguments(raw: str) -> dict | None:
     2. Double-quoted JSON string:        "arguments": "{\"key\": \"val\"}"
     3. Single-quoted string (common):    "arguments": '{"key": "val"}'
     """
-    # Already a dict — shouldn't happen at call site but guard anyway
+    # Already a dict, shouldn't happen at call site but guard anyway
     if isinstance(raw, dict):
         return raw
 
@@ -95,20 +95,20 @@ def _parse_arguments(raw: str) -> dict | None:
 
 
 def _parse_functioncall(text: str) -> dict | None:
-    """Parse <functioncall> … </functioncall> into {name, arguments}."""
+    """Parse <functioncall> ... </functioncall> into {name, arguments}."""
     match = re.search(r'<functioncall>\s*(.*?)\s*</functioncall>', text, re.DOTALL)
     if not match:
         return None
 
     call_text = match.group(1).strip()
 
-    # Extract name — always a regular JSON string key
+    # Extract name, always a regular JSON string key
     name_match = re.search(r'"name"\s*:\s*"([^"]+)"', call_text)
     if not name_match:
         return None
     name = name_match.group(1)
 
-    # Extract arguments — three formats (see _parse_arguments)
+    # Extract arguments, three formats (see _parse_arguments)
     args = None
 
     # Case 3: single-quoted string value (most common in this dataset)
@@ -147,8 +147,8 @@ def _parse_conversation(conversations: list[dict]) -> dict | None:
 
         if role == 'system':
             tools = _extract_tools(value)
-            # Discard hypervariance system boilerplate — it's always generic
-            # ("You are a helpful assistant with access to the following functions…").
+            # Discard hypervariance system boilerplate, it's always generic
+            # ("You are a helpful assistant with access to the following functions...").
             # apply_chat_template(tools=tools) will inject the proper Qwen3.6 system prompt.
 
         elif role == 'human':
@@ -158,7 +158,7 @@ def _parse_conversation(conversations: list[dict]) -> dict | None:
             if '<functioncall>' in value:
                 call = _parse_functioncall(value)
                 if call is None:
-                    return None  # Malformed call — skip example
+                    return None  # Malformed call, skip example
                 call_id = f"call_{call_counter:03d}"
                 call_counter += 1
                 messages.append({

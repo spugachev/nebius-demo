@@ -100,7 +100,7 @@ def main():
 
     print()
     if ok:
-        print("✓ Dataset looks good — ready to upload to cluster")
+        print("✓ Dataset looks good, ready to upload to cluster")
     else:
         print("✗ Fix errors above before uploading")
         sys.exit(1)

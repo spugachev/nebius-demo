@@ -1,4 +1,4 @@
-# Nebius CSA assignment — 2-node H200 Soperator cluster
+# Nebius CSA assignment: 2-node H200 Soperator cluster
 # Tenant: csa-hiring-sandboxK  Project: demoday-sergey
 
 company_name = "spugachev"
@@ -54,7 +54,7 @@ filestore_jail_submounts = [{
   }
 }]
 
-# 300 + 600 + 100 = 1000 GiB total — within 1024 GiB tenant quota
+# 300 + 600 + 100 = 1000 GiB total, within 1024 GiB tenant quota
 filestore_accounting = {
   spec = {
     size_gibibytes       = 100
@@ -243,7 +243,7 @@ soperator_notifier = {
   enabled = false
 }
 
-# Known Terraform recipe bug — must be false
+# Known Terraform recipe bug, must be false
 public_o11y_enabled = false
 
 #----------------------------------------------------------------------------------------------------------------------#
