@@ -1,4 +1,4 @@
-# Multi-Node Function-Calling Fine-Tuning on Nebius Soperator — Report
+# Multi-Node Function-Calling Fine-Tuning on Nebius Soperator: Report
 
 ## Summary
 
@@ -6,18 +6,18 @@ This project delivers an end-to-end, multi-node LLM fine-tuning workflow on
 [Nebius Soperator](https://github.com/nebius/soperator) (Slurm on Managed
 Kubernetes), built to show a PoC team how they would train and serve a
 function-calling model on reserved GPU capacity. We fine-tune
-[**Qwen3.6-35B-A3B**](https://modelscope.cn/models/Qwen/Qwen3.6-35B-A3B) — a 2026
-open-weight Mixture-of-Experts model (256 experts, ~3B active of 35B, with hybrid
-Gated-DeltaNet attention) that is already instruction-tuned — for tool/function
-calling. Training uses [**Megatron-SWIFT**](https://github.com/modelscope/ms-swift)
+[**Qwen3.6-35B-A3B**](https://modelscope.cn/models/Qwen/Qwen3.6-35B-A3B) (a 2026
+open-weight Mixture-of-Experts model: 256 experts, ~3B active of 35B, with hybrid
+Gated-DeltaNet attention; already instruction-tuned) for tool/function calling.
+Training uses [**Megatron-SWIFT**](https://github.com/modelscope/ms-swift)
 (ms-swift on a Megatron-Core backend) with **full supervised fine-tuning and
 [Expert Parallelism](https://swift.readthedocs.io/en/latest/Megatron-SWIFT/Quick-start.html)**
-across **2 nodes × 8 [H200](https://www.nvidia.com/en-us/data-center/h200/) GPUs** —
+across **2 nodes × 8 [H200](https://www.nvidia.com/en-us/data-center/h200/) GPUs**,
 the Qwen-team-recommended path for MoE that keeps GPUs busy where naive MoE training
-stalls at 10–20%. The data is the public
+stalls at 10-20%. The data is the public
 [**hypervariance/function-calling-sharegpt**](https://huggingface.co/datasets/hypervariance/function-calling-sharegpt)
 corpus (~75k usable conversations) normalized through the tokenizer's chat template.
-The run completed in **51 minutes** at **85–92% sustained GPU utilization** (the
+The run completed in **51 minutes** at **85-92% sustained GPU utilization** (the
 assignment's >80% target), verified on the Nebius DCGM dashboard. We then serve the
 base and fine-tuned models side-by-side with [**vLLM**](https://github.com/vllm-project/vllm)
 and evaluate on a 23-case function-calling suite
@@ -63,22 +63,30 @@ sizing) are in [`CLAUDE.md`](CLAUDE.md); the full topology diagram is in
 
 ## Model and Framework
 
-**Model — [Qwen3.6-35B-A3B](https://modelscope.cn/models/Qwen/Qwen3.6-35B-A3B).** A
+**Model:** [Qwen3.6-35B-A3B](https://modelscope.cn/models/Qwen/Qwen3.6-35B-A3B), a
 2026 open-weight (Apache-2.0) Mixture-of-Experts model: 256 experts with top-8
 routing (~3B active parameters of 35B total), 40 layers, and a **hybrid attention
 stack** that interleaves full attention with **Gated DeltaNet** (linear-attention)
 layers. It ships already instruction-tuned, so we do task-specialization rather than
-base alignment. We chose MoE over a dense model because no dense open-weight model
-above 32B was released in 2026 — the field moved to MoE — and training one is the
-more representative, forward-looking demonstration for a customer reserving large
-capacity.
+base alignment.
 
-**Framework — [Megatron-SWIFT](https://github.com/modelscope/ms-swift)** (ms-swift on
+We deliberately chose the **harder** path. A modern dense alternative is essentially
+unavailable: no dense open-weight model above ~32B was released in 2026 (the field
+has moved to MoE), so going dense would mean demonstrating a year-old model (the
+newest comparable dense option, Qwen2.5-72B, is from 2024). And MoE is genuinely
+**hard to train efficiently**: sparse top-k routing, expert load-balancing, and the
+all-to-all expert communication are exactly what makes naive MoE training stall at
+10-20% GPU utilization. That difficulty is the point: most of the engineering in this
+project went into keeping a sparse 35B MoE above 80% utilization across two nodes,
+which is precisely the capability a customer reserving large GPU capacity needs to
+see proven on a current-generation architecture rather than a legacy dense one.
+
+**Framework:** [Megatron-SWIFT](https://github.com/modelscope/ms-swift) (ms-swift on
 a Megatron-Core backend) with **full supervised fine-tuning and Expert Parallelism**.
 This is the path the Qwen team recommends for MoE: it delivers roughly an order of
 magnitude more throughput than HuggingFace/DeepSpeed for MoE and, crucially, keeps
-GPU utilization high — naive MoE training (e.g. DeepSpeed ZeRO-3 + LoRA) is reported
-to stall at 10–20% and has documented incompatibilities. We use **full SFT rather
+GPU utilization high; naive MoE training (e.g. DeepSpeed ZeRO-3 + LoRA) is reported
+to stall at 10-20% and has documented incompatibilities. We use **full SFT rather
 than LoRA** because LoRA on MoE with Expert Parallelism at this scale is undocumented
 and risks falling below the 80% utilization requirement; full SFT is the proven path
 to >80%. Catastrophic forgetting from full SFT is mitigated by keeping non-tool
@@ -93,8 +101,8 @@ by the tokenizer's `apply_chat_template`, never by hand.
 
 The primary dataset is the public
 [**hypervariance/function-calling-sharegpt**](https://huggingface.co/datasets/hypervariance/function-calling-sharegpt)
-corpus (~87k examples, no access gate). It is in ShareGPT form — a single
-`conversations` column — with tool schemas embedded as **free text** in the system
+corpus (~87k examples, no access gate). It is in ShareGPT form (a single
+`conversations` column) with tool schemas embedded as **free text** in the system
 message, function calls wrapped in `<functioncall>` tags, and arguments that are
 sometimes double-stringified. [`training/prepare_dataset.py`](training/prepare_dataset.py)
 parses this inline: it extracts the JSON tool schemas, converts `<functioncall>` tags
@@ -105,7 +113,7 @@ exactly matches what the model will see at inference, and split 96/4 into train/
 ([`validate_dataset.py`](training/validate_dataset.py) checks counts, JSON validity,
 and token statistics). With **sequence packing** to 8192 tokens, the ~75k short
 conversations compact into **4,558 train + 191 eval packed sequences** (~8,131 tokens
-each). `enable_thinking=False` is kept throughout — it yields a simpler training
+each). `enable_thinking=False` is kept throughout: it yields a simpler training
 signal, lower inference latency, and cleaner output for an automation integration.
 
 ## Training
@@ -114,7 +122,7 @@ Training runs from the **official ms-swift enroot image** with `tilelang` baked 
 (`swift431-tl.sqsh`; see *Engineering Challenges*), invoked as `megatron sft` via
 [`train.slurm`](training/train.slurm) → [`run_megatron.sh`](training/run_megatron.sh)
 (an sbatch script that sets `MASTER_ADDR`/`NNODES` and an `srun` runner that sets
-`NODE_RANK` per node — the separation avoids quoting issues and rank collisions).
+`NODE_RANK` per node; the separation avoids quoting issues and rank collisions).
 
 The parallelism is **PP=1, TP=1, EP=8 ⇒ data-parallel size 16**. Expert Parallelism
 shards the 256 experts across 8 ranks; with no pipeline parallelism across nodes,
@@ -134,8 +142,8 @@ checkpoint (`checkpoint-426`, 66 GB of safetensors) is directly loadable by vLLM
 ## GPU Utilization
 
 The assignment's key metric is **DCGM_FI_DEV_GPU_UTIL** (fraction of time the GPU
-executes kernels). We **sustained 85–92% across all 16 H200 GPUs** (mean ≈ 85%) during
-steady-state training — comfortably above the >80% target. It was measured two ways:
+executes kernels). We **sustained 85-92% across all 16 H200 GPUs** (mean ≈ 85%) during
+steady-state training, comfortably above the >80% target. It was measured two ways:
 live from the cluster with an overlapping step on the job's own allocation
 (`srun --jobid=N --overlap … nvidia-smi`, wrapped by
 [`training/watch_gpu.sh`](training/watch_gpu.sh)), and on the **Nebius console DCGM
@@ -149,7 +157,7 @@ reference are in [`docs/monitoring.md`](docs/monitoring.md).
 ## Inference and Evaluation
 
 Both models are served with [**vLLM**](https://github.com/vllm-project/vllm) 0.23.0
-(from the same image) at tensor-parallel size 2 — 35B in bf16 (~70 GB) fits
+(from the same image) at tensor-parallel size 2: 35B in bf16 (~70 GB) fits
 comfortably on 2 H200s, and TP=8 would only add communication overhead. A smoke test
 first de-risked that vLLM loads the hybrid Gated-DeltaNet architecture and emits a
 parsed tool call via `--tool-call-parser qwen3_coder`. For an apples-to-apples
@@ -160,7 +168,7 @@ false}` per request), matching training.
 tuned (`:8001`) on one node and runs [`eval/compare.py`](eval/compare.py), a
 dependency-light harness that sends [23 hand-written prompts](eval/prompts.jsonl)
 across six categories (single-tool, multi-argument, should-clarify, no-tool-needed,
-process-automation, ambiguous), parses the tool calls, and scores them — including
+process-automation, ambiguous), parses the tool calls, and scores them, including
 *executability* against [mock tool implementations](eval/mock_tools.py). The
 fine-tuned model improves on every aggregate metric
 ([full report](eval/results/comparison.md)):
@@ -172,23 +180,35 @@ fine-tuned model improves on every aggregate metric
 | Argument exact-match (call cases) | 76.5% | **94.1%** | +17.6 |
 | Executable against mock tools | 65.2% | **78.3%** | +13.1 |
 
+Broken down by category (appropriate call/no-call rate), the gains concentrate where
+the base model was weakest, with no regressions except *clarify*:
+
+| Category | n | Base | Tuned |
+|---|---:|---:|---:|
+| ambiguous | 2 | 0% | **100%** |
+| single_tool | 6 | 83% | **100%** |
+| multi_arg | 5 | 100% | 100% |
+| no_tool | 3 | 100% | 100% |
+| process_automation | 4 | 100% | 100% |
+| clarify | 3 | 100% | **67%** ⚠️ |
+
 Concretely, the tuned model now reliably translates ("good morning" → Japanese),
 resolves ambiguous asks (`get_stock_price(TSLA)`; `set_reminder` instead of
 `get_weather`), and fills multi-argument process-automation calls (tickets, refunds,
 VM provisioning) correctly. There is one honest trade-off: the *clarify* rate dipped
-(100% → 67%) — function-calling SFT makes the model more eager to call a tool rather
+(100% → 67%); function-calling SFT makes the model more eager to call a tool rather
 than ask for a missing argument. That is the expected effect and the clear next
 improvement: add more negative/clarification examples to the data mix.
 
 ## Engineering Challenges
 
 The interesting work was diagnosing and *properly* fixing several non-obvious issues
-(no runtime patches — see [`docs/troubleshooting.md`](docs/troubleshooting.md) for the
+(no runtime patches; see [`docs/troubleshooting.md`](docs/troubleshooting.md) for the
 full log):
 
 - **ms-swift 4.x `[megatron]` is not on PyPI.** Every pip/uv install backtracked
   forever or pulled an incompatible torch (`No module named 'torch.multiprocessing'`).
-  Fix: use the **official ms-swift docker image** via enroot — it ships a consistent
+  Fix: use the **official ms-swift docker image** via enroot; it ships a consistent
   torch 2.11 / TransformerEngine / flash-attn / megatron-core / vLLM stack.
 - **Qwen3.6's Gated DeltaNet crashes on the first backward on Hopper.** Its
   `fla` Triton kernel is numerically wrong on Triton ≥ 3.4 (the image has 3.6), so it
@@ -197,13 +217,13 @@ full log):
   upgrades and FFI types don't double-register.
 - **Pipeline parallelism idled GPUs**, and **batch divisibility**: with PP=1, the data
   parallel size is 16 (EP is orthogonal), so `global_batch` must be a multiple of
-  `micro_batch × 16` — `micro_batch=2` ⇒ `global_batch=32`.
+  `micro_batch × 16`, so `micro_batch=2` ⇒ `global_batch=32`.
 - **vLLM 0.23.0 has no `--chat-template-kwargs` CLI flag** (servers exit at arg-parse);
   thinking is disabled **per request** in the body instead.
 
 ## Reproducibility and Scaling
 
-The whole workflow is scripted and documented for reproduction — provision with
+The whole workflow is scripted and documented for reproduction: provision with
 Terraform, prepare data locally, then four `sbatch` jobs (predownload → import image →
 build image → train), with serving and evaluation as two more; step-by-step commands
 are in the [`README.md`](README.md). Everything the customer keeps is reusable: the
@@ -218,7 +238,7 @@ Slurm interface, container image, and shared-filesystem layout stay identical.
 ## Conclusion
 
 Both exercises are complete. We fine-tuned a 2026 35B MoE function-calling model
-across 16 H200 GPUs on Nebius Soperator at **85–92% sustained GPU utilization**
+across 16 H200 GPUs on Nebius Soperator at **85-92% sustained GPU utilization**
 (requirement: >80%) in under an hour, and demonstrated a **measurable quality
 improvement** of the tuned model over the base (function-name accuracy 82 → 100%,
 argument exact-match 76 → 94%). The result is a reproducible, well-documented,
