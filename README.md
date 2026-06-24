@@ -97,6 +97,58 @@ Both serve with `--tool-call-parser qwen3_coder`; the client sends
 `chat_template_kwargs={"enable_thinking": false}` for an apples-to-apples comparison.
 For interactive/demo serving use `inference/serve_base.sh` / `serve_tuned.sh`.
 
+### Query both models by hand (interactive)
+
+The login node has no GPUs — drop into the container on a GPU worker, start both
+servers, then `curl` them.
+
+**1. Shell into the container on a GPU node (4 GPUs: 2 per model):**
+```bash
+srun --nodes=1 --gpus-per-node=4 --cpus-per-task=48 --mem=400G \
+     --partition=main --time=02:00:00 \
+     --container-image=/data/images/swift431-tl.sqsh \
+     --container-mounts=/data:/data --pty bash
+```
+
+**2. Start both models in the background:**
+```bash
+BASE=/data/models/Qwen3.6-35B-A3B/Qwen/Qwen3.6-35B-A3B
+TUNED=/data/checkpoints/qwen3-fc-20260624-0025/v0-20260624-082630/checkpoint-426
+OPTS="--tensor-parallel-size 2 --tool-call-parser qwen3_coder --enable-auto-tool-choice --max-model-len 8192 --host 0.0.0.0"
+
+CUDA_VISIBLE_DEVICES=0,1 vllm serve $BASE  --served-model-name base  $OPTS --port 8000 > /data/logs/base.log  2>&1 &
+CUDA_VISIBLE_DEVICES=2,3 vllm serve $TUNED --served-model-name tuned $OPTS --port 8001 > /data/logs/tuned.log 2>&1 &
+
+# loading is ~11 min each (MoE + GDN + kernel compile); wait for both:
+until curl -sf localhost:8000/health && curl -sf localhost:8001/health; do sleep 10; done; echo READY
+```
+
+**3. Ask both with one helper** (disables thinking per request, like training):
+```bash
+ask () {  # ask <port> <model> "<question>"
+  local PORT=$1 MODEL=$2 Q=$3
+  curl -s localhost:$PORT/v1/chat/completions -H 'Content-Type: application/json' -d @- <<JSON | \
+    python3 -c 'import sys,json; m=json.load(sys.stdin)["choices"][0]["message"]; print("content:", m.get("content")); print("tool_calls:", json.dumps(m.get("tool_calls"), ensure_ascii=False, indent=2))'
+{
+  "model": "$MODEL",
+  "messages": [{"role":"user","content":"$Q"}],
+  "tools": [{"type":"function","function":{"name":"get_weather","description":"Get current weather for a city","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}},
+            {"type":"function","function":{"name":"create_ticket","description":"Create a support ticket","parameters":{"type":"object","properties":{"customer":{"type":"string"},"category":{"type":"string"},"priority":{"type":"string"}},"required":["customer","category"]}}}],
+  "tool_choice": "auto", "temperature": 0,
+  "chat_template_kwargs": {"enable_thinking": false}
+}
+JSON
+}
+
+Q="Open a high priority support ticket for Acme Corp about a payment_failure"
+echo "── BASE ──";  ask 8000 base  "$Q"
+echo "── TUNED ──"; ask 8001 tuned "$Q"
+```
+
+Edit the `tools` array and `$Q` for your own cases. For one model only, use
+`--gpus-per-node=2` and start a single `vllm serve … --port 8000`. `exit` frees the
+GPUs (servers stop with the allocation).
+
 ## Key engineering notes
 
 The hard-won, non-obvious facts (full detail in `CLAUDE.md`):
