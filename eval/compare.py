@@ -69,6 +69,10 @@ def call_model(base_url: str, model: str, query: str, tools: list) -> dict:
             "tool_choice": "auto",
             "temperature": 0,
             "max_tokens": 512,
+            # Disable Qwen3.6 thinking per-request (vLLM 0.23.0 has no
+            # --chat-template-kwargs CLI flag; it accepts this in the body).
+            # Matches training (enable_thinking=false) → apples-to-apples.
+            "chat_template_kwargs": {"enable_thinking": False},
         },
     )
     msg = resp["choices"][0]["message"]

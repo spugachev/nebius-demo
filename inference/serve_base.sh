@@ -11,13 +11,13 @@ MODEL="${MODEL:-/data/models/Qwen3.6-35B-A3B/Qwen/Qwen3.6-35B-A3B}"
 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"
 
-# enable_thinking=false matches training and keeps tool calls clean (no <think> preamble),
-# so the base-vs-tuned comparison is apples-to-apples on function-calling quality.
+# To match training (no <think> preamble), clients pass
+#   "chat_template_kwargs": {"enable_thinking": false}
+# in the request body (vLLM 0.23.0 has no --chat-template-kwargs CLI flag).
 exec vllm serve "$MODEL" \
     --served-model-name qwen36-base \
     --tensor-parallel-size 2 \
     --tool-call-parser qwen3_coder \
     --enable-auto-tool-choice \
-    --chat-template-kwargs '{"enable_thinking": false}' \
     --max-model-len 8192 \
     --host 0.0.0.0 --port "${PORT:-8000}"

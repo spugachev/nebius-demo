@@ -11,11 +11,11 @@ MODEL="${MODEL:-/data/checkpoints/qwen3-fc-20260624-0025/v0-20260624-082630/chec
 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-2,3}"
 
+# enable_thinking=false is passed per-request by the client (no CLI flag in vLLM 0.23.0).
 exec vllm serve "$MODEL" \
     --served-model-name qwen36-tuned \
     --tensor-parallel-size 2 \
     --tool-call-parser qwen3_coder \
     --enable-auto-tool-choice \
-    --chat-template-kwargs '{"enable_thinking": false}' \
     --max-model-len 8192 \
     --host 0.0.0.0 --port "${PORT:-8001}"

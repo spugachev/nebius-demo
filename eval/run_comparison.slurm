@@ -24,8 +24,10 @@ OUT="/data/logs/comparison-${SLURM_JOB_ID}"
 
 srun --container-image="$IMAGE" --container-mounts="/data:/data" bash -c '
 set -e
+# Note: enable_thinking=false is passed per-request by compare.py (vLLM 0.23.0
+# has no --chat-template-kwargs CLI flag).
 common="--tensor-parallel-size 2 --tool-call-parser qwen3_coder --enable-auto-tool-choice \
-        --chat-template-kwargs {\"enable_thinking\":false} --max-model-len 8192 --host 0.0.0.0"
+        --max-model-len 8192 --host 0.0.0.0"
 
 echo "=== launching base (GPU 0,1 :8000) and tuned (GPU 2,3 :8001) ==="
 CUDA_VISIBLE_DEVICES=0,1 vllm serve "'"$BASE_MODEL"'"  --served-model-name qwen36-base  $common --port 8000 \
