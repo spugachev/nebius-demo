@@ -5,11 +5,16 @@ End-to-end example for a Nebius PoC: fine-tune a 2026 open-weight MoE LLM
 Kubernetes) across **2 nodes × 8 H200 GPUs**, then serve and compare base vs
 tuned with vLLM.
 
-> **Status:** Exercise 1 (training) **complete** — full SFT ran to completion in
-> **51m33s** on 16×H200 at **85–92% sustained GPU utilization** (requirement:
-> >80%), final eval loss 0.196. Inference comparison (Exercise 2) and docs are
-> in progress. See `CLAUDE.md` for the authoritative as-built configuration and
-> `PLAN.md` for the design rationale.
+> **Status: both exercises complete.**
+> - **Exercise 1 (training):** full SFT ran in **51m33s** on 16×H200 at **85–92%
+>   sustained GPU utilization** (requirement: >80%), loss 0.20→0.13, eval 0.196.
+> - **Exercise 2 (inference):** tuned beats base on every metric — function-name
+>   accuracy 82→**100%**, argument exact-match 76→**94%**, appropriate call/no-call
+>   87→**96%** (`eval/results/comparison.md`).
+> - **Docs:** architecture / monitoring / troubleshooting / demo script in `docs/`.
+>
+> See `CLAUDE.md` for the authoritative as-built configuration and `PLAN.md` for
+> the design rationale.
 
 ## What this demonstrates
 
@@ -37,9 +42,9 @@ tuned with vLLM.
 ```
 terraform/   Soperator cluster (forked nebius-solution-library recipe)
 training/    dataset prep (local) + Slurm jobs (predownload, image build, train)
-inference/   vLLM serving scripts  (TODO)
-eval/        test prompts + comparison (TODO)
-docs/        architecture / monitoring / demo  (TODO)
+inference/   vLLM serving scripts (serve_base.sh, serve_tuned.sh, smoke_test.slurm)
+eval/        prompts.jsonl, mock_tools.py, compare.py, run_comparison.slurm, results/
+docs/        architecture.md, monitoring.md, troubleshooting.md, demo_script.md
 ```
 
 See `CLAUDE.md` → "File layout" for a per-file description.
@@ -81,11 +86,16 @@ bash /data/code/training/watch_gpu.sh <JOBID>   # live, both nodes, via srun --o
 # Also visible on the Nebius console DCGM dashboards (DCGM_FI_DEV_GPU_UTIL).
 ```
 
-### 5. Serve & compare (Exercise 2 — TODO)
+### 5. Serve & compare (Exercise 2)
 `--save_safetensors=true` makes each `checkpoint-N` directly vLLM-loadable, so
-**no export step is needed**. Point `serve_tuned.sh` at
-`/data/checkpoints/.../checkpoint-426` and `serve_base.sh` at the base model,
-both with `--tool-call-parser qwen3_coder`, then run `eval/compare.py`.
+**no export step is needed**. One job stands up both models and scores them:
+```bash
+sbatch /data/code/eval/run_comparison.slurm   # base :8000 + tuned :8001, then compare.py
+# → /data/logs/comparison-<JOB>.md  (saved in repo: eval/results/comparison.md)
+```
+Both serve with `--tool-call-parser qwen3_coder`; the client sends
+`chat_template_kwargs={"enable_thinking": false}` for an apples-to-apples comparison.
+For interactive/demo serving use `inference/serve_base.sh` / `serve_tuned.sh`.
 
 ## Key engineering notes
 
